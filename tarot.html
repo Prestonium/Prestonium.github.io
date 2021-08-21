@@ -16,7 +16,7 @@
     <a class="return" href="index.html">Go back Home</a>
     <h1 class="title">Tarot Card Generator</h1>
     <div id="app">
-        Number of cards: <input type="text" v-model="numberOfCards" @keydown.enter="getCards">
+        <h3>Number of cards:</h3> <input type="text" v-model="numberOfCards" @keydown.enter="getCards">
         <button v-on:click="getCards" class="btn btn-dark btn-sm">Search</button>
         <table class="table">
             <thead>
@@ -28,7 +28,7 @@
                 <th scope="col">Descriptions</th>
             </tr>
             </thead>
-            <tr v-for="(card, index) in info" :set="position = getPosition(card)">
+            <tr class="content" v-for="(card, index) in info" :set="position = getPosition(card)">
                 <th scope="row">{{index + 1}}</th>
                 <td class='container'><img v-bind:class="rotated(position)" v-bind:src="getImgPath(card)"
                                            v-bind:alt="getImgPath(card)"></td>
