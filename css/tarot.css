@@ -1,0 +1,46 @@
+@media only screen and (max-device-width: 480px) {
+    div#core {
+        padding: 10%;
+    }
+}
+body{
+    background-color: #ccc;:;
+}
+#core {
+    padding: 10%;
+}
+.return{
+    text-decoration: none;
+    color: Black;
+    font-weight: bold;
+    padding: 1%
+}
+.return:hover{
+    background-color: dimgrey;
+    color:white;
+    border-radius: 10px;
+}
+.table{
+    background-color: white;
+}
+.container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+ }
+#app{
+    background-color: white;
+}
+.rotate {
+    font-size: 30px;
+    -webkit-transform: scale(-1,-1);
+    transform: scale(-1,-1);
+}
+
+.title{
+    background-color: black;
+    color: white;
+    margin: 0;
+    margin-top: 5px;
+}
