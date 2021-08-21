@@ -1,0 +1,15 @@
+body{
+    margin: 10px;
+}
+.container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+ }
+
+.rotate {
+    font-size: 30px;
+    -webkit-transform: rotateX(180deg);
+    transform: rotateX(180deg);
+}

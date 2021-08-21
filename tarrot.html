@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Test Project</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14"></script>
+    <link href="css/tarrot.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"
+            integrity="sha512-bZS47S7sPOxkjU/4Bt0zrhEtWx0y0CRkhEp8IckzK+ltifIIE9EMIMTuT/mEzoIMewUINruDBIR/jJnbguonqQ=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="js/tarrot.js" defer></script>
+</head>
+<body>
+<div id="app">
+    Number of cards: <input type="text" v-model="numberOfCards">
+    <button v-on:click="getCards">Search</button>
+    {{info}}
+    <table class="table">
+        <thead>
+        <tr>
+            <th scope="col">#</th>
+            <th scope="col">Img</th>
+            <th scope="col">Name</th>
+            <th scope="col">Meaning</th>
+            <th scope="col">Descriptions</th>
+        </tr>
+        </thead>
+        <tr v-for="(card, index) in info" :set="position = getPosition(card)">
+            <th scope="row">{{index + 1}}</th>
+            <td class = 'container'><img v-bind:class="rotated(position)" v-bind:src="getImgPath(card)" v-bind:alt="getImgPath(card)"></td>
+            <td>{{card.name + ' - ' + position}}</td>
+            <td>{{getMeaning(position, card)}}</td>
+            <td>{{card.desc}}</td>
+        </tr>
+    </table>
+</div>
+</body>
+</html>
