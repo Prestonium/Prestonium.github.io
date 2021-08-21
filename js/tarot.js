@@ -9,9 +9,14 @@ new Vue({
     computed: {},
     methods: {
         getCards() {
-            axios
-                .get('https://rws-cards-api.herokuapp.com/api/v1/cards/random?n=' + this.numberOfCards)
-                .then(response => (this.info = response.data.cards));
+            if (this.numberOfCards > 0) {
+                axios
+                    .get('https://rws-cards-api.herokuapp.com/api/v1/cards/random?n=' + this.numberOfCards)
+                    .then(response => (this.info = response.data.cards));
+            } else{
+                this.info = null;
+            }
+
         },
         getPosition(card) {
             if (Math.random() < .5) {
@@ -34,18 +39,18 @@ new Vue({
                 return 'cards/ar' + suffix
             }
         },
-        getMeaning(position, card){
-            if(position == 'Upright'){
+        getMeaning(position, card) {
+            if (position == 'Upright') {
                 return card.meaning_up
-            }else if(position == 'Reversed'){
+            } else if (position == 'Reversed') {
                 return card.meaning_rev
             }
         },
-        rotated(position){
-            if(position == 'Reversed'){
-                return {rotate:true}
+        rotated(position) {
+            if (position == 'Reversed') {
+                return {rotate: true}
             }
-            return {rotate:false}
+            return {rotate: false}
         }
     }
 })
