@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Get help making choices</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14"></script>
+    <script src="js/choices.js" defer></script>
+</head>
+<body>
+<div id="app">
+    <div>
+        <button v-on:click="generateYesOrNo">Yes or No</button>
+        <p>{{yesOrNo}}</p>
+    </div>
+    <div>
+        <p v-if="yesOrNoClicks > 5">Hello</p>
+        Input possible choice: <input type="text" v-model="choiceInput" @keydown.enter="insertChoice"> <button v-on:click="insertChoice">Add<button @click="alert('Work n progress')">Pick</button>
+        <div v-for="choice in choices">
+            <p>{{choice}}</p>
+        </div>
+    </div>
+</div>
+</body>
+</html>
