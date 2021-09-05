@@ -10,16 +10,22 @@
 </head>
 <body>
 <div id="app">
-    <div>
-        <button v-on:click="generateYesOrNo">Yes or No</button>
-        <p>{{yesOrNo}}</p>
-    </div>
-    <div>
+    <div v-if="!choiceMade">
         <p v-if="yesOrNoClicks > 5">Hello</p>
-        Input possible choice: <input type="text" v-model="choiceInput" @keydown.enter="insertChoice"> <button v-on:click="insertChoice">Add<button @click="alert('Work n progress')">Pick</button>
+        Input possible choice: <input type="text" v-model="choiceInput" @keydown.enter="insertChoice">
+        <button v-on:click="insertChoice">Add</button>
+        <button @click="pick()">Pick</button>
         <div v-for="choice in choices">
-            <p>{{choice}}</p>
+            <p v-if="!choice.chosen">{{choice.choice}}</p>
         </div>
+    </div>
+    <div v-if="choiceMade">
+        <p>
+        The selected option is: {{choice.choice}}
+        </p>
+        <p>
+            Click here to reset: <button @click="reset()">Reset</button>
+        </p>
     </div>
 </div>
 </body>

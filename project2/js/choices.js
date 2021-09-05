@@ -5,12 +5,30 @@ new Vue({
             yesOrNo: '?',
             yesOrNoClicks: 0,
             choiceInput: '',
-            choices: ['']
+            choices: [],
+            choiceMade: false,
+            choice: {}
+
         }
     },
     methods: {
+        reset(){
+            this.choiceInput = ''
+            this.choices = []
+            this.choice = {}
+            this.choiceMade = false
+        },
+        pick(){
+            this.choice = this.choices[Math.floor(Math.random() * this.choices.length)]
+            this.choice.chosen = true
+            this.choiceMade = true
+        },
         insertChoice(){
-            this.choices.push(this.choiceInput)
+            this.choices.push({
+                choice: this.choiceInput,
+                chosen: false
+            })
+            this.choiceInput = ''
         },
         generateYesOrNo() {
             this.yesOrNoClicks = this.yesOrNoClicks + 1
