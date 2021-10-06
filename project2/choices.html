@@ -12,9 +12,10 @@
 <div id="app">
     <div v-if="!choiceMade">
         <p v-if="yesOrNoClicks > 5">Hello</p>
-        Input possible choice: <input type="text" v-model="choiceInput" @keydown.enter="insertChoice">
+        Input possible choice: <input type="text" v-model="choiceInput" @keydown.enter="insertChoice" @keydown.shift.enter="pick">
         <button v-on:click="insertChoice">Add</button>
-        <button @click="pick()">Pick</button>
+        <button @click="pick">Pick</button>
+        {{choices.length}}
         <div v-for="choice in choices">
             <p v-if="!choice.chosen">{{choice.choice}}</p>
         </div>

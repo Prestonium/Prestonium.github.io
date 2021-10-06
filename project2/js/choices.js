@@ -7,8 +7,8 @@ new Vue({
             choiceInput: '',
             choices: [],
             choiceMade: false,
-            choice: {}
-
+            choice: {},
+            invalidInput: false
         }
     },
     methods: {
@@ -24,11 +24,15 @@ new Vue({
             this.choiceMade = true
         },
         insertChoice(){
-            this.choices.push({
-                choice: this.choiceInput,
-                chosen: false
-            })
-            this.choiceInput = ''
+            if(this.choiceInput === '' || this.choiceInput === null || this.choiceInput.value === 0) {
+                this.invalidInput = true
+            }else{
+                this.choices.push({
+                    choice: this.choiceInput,
+                    chosen: false
+                })
+                this.choiceInput = ''
+            }
         },
         generateYesOrNo() {
             this.yesOrNoClicks = this.yesOrNoClicks + 1
