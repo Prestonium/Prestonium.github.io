@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>An Ethical Framework for Evaluating Political Structures</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony (Light stone/gray neutrals with a muted teal accent) -->
+    <!-- Application Structure Plan: A thematic, single-page application guiding the user from core principles (interactive pillars) to practical application (a dynamic case study explorer). This structure is chosen to make a complex philosophical argument digestible and interactive, promoting understanding by breaking the content into logical, explorable sections rather than a linear text document. -->
+    <!-- Visualization & Content Choices: Report Info: Core principles and case study analyses. Goal: Inform, compare, analyze. Viz/Presentation: Interactive HTML cards for principles, dynamic text blocks for case studies with simple Unicode indicators (✅/❌) for quick evaluation. Interaction: JS-powered click-to-reveal and click-to-update content. Justification: The report is purely conceptual, making data charts inappropriate. The chosen interactive HTML structure acts as a visual and functional diagram of the framework's logic. Library/Method: Vanilla JS, Tailwind CSS. CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+        .active-pillar {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            border-color: #0d9488;
+        }
+        .active-case-study {
+            background-color: #0d9488;
+            color: white;
+            transform: scale(1.05);
+        }
+        .pillar-icon {
+            font-size: 2.5rem;
+            line-height: 1;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-slate-800">
+
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-xl md:text-2xl font-bold text-teal-700">Ethical Framework Explorer</h1>
+            <div class="hidden md:flex space-x-6">
+                <a href="#introduction" class="text-slate-600 hover:text-teal-600 transition-colors">Introduction</a>
+                <a href="#pillars" class="text-slate-600 hover:text-teal-600 transition-colors">The Pillars</a>
+                <a href="#application" class="text-slate-600 hover:text-teal-600 transition-colors">Application</a>
+                <a href="#conclusion" class="text-slate-600 hover:text-teal-600 transition-colors">Conclusion</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-6 py-8 md:py-16">
+
+        <section id="introduction" class="text-center mb-16 md:mb-24">
+            <h2 class="text-3xl md:text-5xl font-bold mb-4">An Ethical Framework for Evaluating Political Structures</h2>
+            <p class="max-w-3xl mx-auto text-lg text-slate-600">
+                This application provides an interactive guide to a universal ethical framework for evaluating political systems. It is grounded in two core principles: **Universal Equality** and **Collective Self-Determination**. The goal is not to prescribe solutions, but to offer a consistent lens for analyzing justice in our world.
+            </p>
+        </section>
+
+        <section id="pillars" class="mb-16 md:mb-24">
+            <div class="text-center mb-12">
+                <h3 class="text-3xl md:text-4xl font-bold">The Two Pillars of Justice</h3>
+                <p class="max-w-2xl mx-auto text-slate-600 mt-2">Click on each pillar to explore its core tenets. These two principles form the foundation of the entire framework.</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div id="pillar-equality" class="pillar-card bg-white p-8 rounded-lg shadow-md border-2 border-transparent hover:border-teal-600 cursor-pointer transition-all duration-300">
+                    <div class="flex items-center mb-4">
+                        <span class="pillar-icon mr-4">⚖️</span>
+                        <h4 class="text-2xl font-bold">Universal Equality</h4>
+                    </div>
+                    <p class="text-slate-600">Rights are bestowed by personhood, not group membership. A state's legitimacy depends on its ability to provide equal protection and political agency to all individuals.</p>
+                </div>
+                <div id="pillar-determination" class="pillar-card bg-white p-8 rounded-lg shadow-md border-2 border-transparent hover:border-teal-600 cursor-pointer transition-all duration-300">
+                    <div class="flex items-center mb-4">
+                        <span class="pillar-icon mr-4">🌍</span>
+                        <h4 class="text-2xl font-bold">Collective Self-Determination</h4>
+                    </div>
+                    <p class="text-slate-600">All peoples have a right to organize politically to preserve their culture, security, and identity. This right, however, cannot justify violating universal equality.</p>
+                </div>
+            </div>
+            <div id="pillar-details" class="mt-8 p-8 bg-white rounded-lg shadow-inner min-h-[100px] transition-opacity duration-500 opacity-0">
+                <h5 id="pillar-detail-title" class="text-xl font-bold text-teal-700 mb-2"></h5>
+                <p id="pillar-detail-text" class="text-slate-700"></p>
+            </div>
+        </section>
+
+        <section id="application" class="mb-16 md:mb-24">
+            <div class="text-center mb-12">
+                <h3 class="text-3xl md:text-4xl font-bold">The Framework in Practice</h3>
+                <p class="max-w-2xl mx-auto text-slate-600 mt-2">Select a case study to see how the framework is applied. The analysis evaluates each situation against the two pillars, revealing the ethical successes and failures of the political structures involved.</p>
+            </div>
+            <div id="case-study-selector" class="flex flex-wrap justify-center gap-3 md:gap-4 mb-12">
+            </div>
+
+            <div id="case-study-display" class="bg-white p-8 rounded-lg shadow-lg transition-opacity duration-500 opacity-0">
+                <h4 id="case-study-title" class="text-2xl md:text-3xl font-bold mb-4"></h4>
+                <div id="case-study-analysis" class="space-y-6">
+                </div>
+            </div>
+        </section>
+
+        <section id="conclusion">
+            <div class="text-center mb-12">
+                <h3 class="text-3xl md:text-4xl font-bold">Challenges, Limitations, and the Moral Imperative</h3>
+            </div>
+            <div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md space-y-4 text-slate-700">
+                <p>While robust, this framework is not without its challenges. Its idealism can be a point of critique, as a truly free and fair democratic process is difficult to achieve in conflict zones. Furthermore, the language of "self-determination" or "equality" can be co-opted by bad actors to justify oppression. The framework's success depends on the intellectual honesty of those applying it.</p>
+                <p>Despite these limitations, the framework’s moral imperative remains. It is a powerful tool for revealing the inherent injustices of political systems that privilege some over others. It reveals that the most significant ethical failures of modern political systems are not merely the absence of a specific solution, but the failure to uphold the fundamental rights of every person and every people.</p>
+                <p class="font-semibold text-teal-700">The framework’s core claim is that political legitimacy is not a matter of historical right or military might, but of moral performance. It demands that all states and all peoples engage in the difficult work of building societies that are just for all.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-slate-800 text-white mt-16">
+        <div class="container mx-auto px-6 py-8 text-center">
+            <p>&copy; 2025 Ethical Framework Explorer. An interactive representation of a procedural ethical framework.</p>
+        </div>
+    </footer>
+
+    <script>
+        const pillarData = {
+            equality: {
+                title: 'On Universal Equality',
+                text: 'The foundational axiom of this framework is that rights are bestowed by personhood, not by group membership. This principle is systematically violated by any state structure that legislates a hierarchy of human value, such as ethnonationalism. A state\'s primary duty is to be a neutral guarantor of rights for all individuals under its jurisdiction, not a partisan instrument for a dominant group.'
+            },
+            determination: {
+                title: 'On Collective Self-Determination',
+                text: 'All peoples have a right to organize politically to preserve their culture, security, and identity. This is a fundamental human right. However, this principle is not a blank check. The right to collective self-determination cannot be used as a moral justification for the violation of universal equality. When a political movement, in its quest for self-determination, leads to the displacement or dehumanization of another group, it is a moral failure.'
+            }
+        };
+
+        const caseStudiesData = {
+            'Israel-Palestine': {
+                title: 'Case Study: Israel-Palestine',
+                analysis: `
+                    <p class="mb-4">The framework identifies two foundational ethical failures in this conflict. The goal is not to prescribe an outcome, but to diagnose the ethical problems that any just solution must address.</p>
+                    <div class="border-l-4 border-red-500 pl-4 mb-4">
+                        <h5 class="font-semibold">❌ Universal Equality: Violated</h5>
+                        <p class="text-slate-600">The State of Israel, through foundational laws that privilege Jewish identity and policies like the denial of the Palestinian right of return, fails the test of universal equality. This creates a hierarchy of rights based on group membership, which is an ethical failure.</p>
+                    </div>
+                    <div class="border-l-4 border-red-500 pl-4">
+                        <h5 class="font-semibold">❌ Collective Self-Determination: Violated</h5>
+                        <p class="text-slate-600">The absence of a sovereign Palestinian state and the ongoing occupation denies the Palestinian people their collective right to self-determination. Their ability to organize politically and preserve their culture is systematically undermined.</p>
+                    </div>
+                    <p class="mt-4 pt-4 border-t"><strong>Conclusion:</strong> The moral imperative is to create a democratic process where both peoples, as equals, can determine their future. The current structure fails both ethical tests.</p>
+                `
+            },
+            'Northern Ireland': {
+                title: 'Case Study: Northern Ireland',
+                analysis: `
+                    <p class="mb-4">The Good Friday Agreement is viewed by the framework as an ethically sound resolution process because it addresses both pillars simultaneously.</p>
+                    <div class="border-l-4 border-green-500 pl-4 mb-4">
+                        <h5 class="font-semibold">✅ Universal Equality: Upheld</h5>
+                        <p class="text-slate-600">The agreement established a political system founded on the principle of equality for both communities (Unionist and Nationalist). It created power-sharing institutions to ensure no single group could dominate, guaranteeing equal rights for all citizens.</p>
+                    </div>
+                    <div class="border-l-4 border-green-500 pl-4">
+                        <h5 class="font-semibold">✅ Collective Self-Determination: Upheld</h5>
+                        <p class="text-slate-600">The agreement provided a democratic mechanism for the people of Northern Ireland to determine their future constitutional status. It respects the self-determination of both communities by allowing them to identify as British, Irish, or both.</p>
+                    </div>
+                    <p class="mt-4 pt-4 border-t"><strong>Conclusion:</strong> The process is a model for reconciling conflicting national identities within a framework of shared, equal rights.</p>
+                `
+            },
+            'Apartheid South Africa': {
+                title: 'Case Study: Apartheid South Africa',
+                analysis: `
+                    <p class="mb-4">The apartheid regime represented a profound ethical failure on both counts, while its dissolution was a victory for the framework's principles.</p>
+                    <div class="border-l-4 border-red-500 pl-4 mb-4">
+                        <h5 class="font-semibold">❌ Universal Equality (Apartheid Era): Violated</h5>
+                        <p class="text-slate-600">Apartheid was the legal codification of racial hierarchy. It was a systematic and total violation of universal equality, denying rights to the Black majority based on group identity.</p>
+                    </div>
+                     <div class="border-l-4 border-red-500 pl-4 mb-4">
+                        <h5 class="font-semibold">❌ Collective Self-Determination (Apartheid Era): Violated</h5>
+                        <p class="text-slate-600">The regime denied the Black majority their right to self-determination, forcing them into Bantustans and denying them any real political agency.</p>
+                    </div>
+                    <div class="border-l-4 border-green-500 pl-4">
+                        <h5 class="font-semibold">✅ Post-Apartheid Resolution: Upheld</h5>
+                        <p class="text-slate-600">The new South African constitution established a non-racial democracy, guaranteeing universal equality and realizing the Black majority's right to self-determination through democratic rule.</p>
+                    </div>
+                `
+            },
+            'Quebec Sovereignty': {
+                title: 'Case Study: Quebec Sovereignty Movement',
+                analysis: `
+                    <p class="mb-4">The framework views this as a legitimate political conflict managed within an ethical democratic structure, demonstrating how tension between the pillars can be non-violent and procedural.</p>
+                    <div class="border-l-4 border-green-500 pl-4 mb-4">
+                        <h5 class="font-semibold">✅ Universal Equality: Upheld</h5>
+                        <p class="text-slate-600">The Canadian state, in its constitution, largely upholds the principle of universal equality for all its citizens, including those in Quebec. The conflict is not about a hierarchy of rights.</p>
+                    </div>
+                    <div class="border-l-4 border-green-500 pl-4">
+                        <h5 class="font-semibold">✅ Collective Self-Determination: Upheld</h5>
+                        <p class="text-slate-600">The Quebecois people's right to self-determination has been expressed through a legitimate and democratic process, including multiple referendums on sovereignty. The state has allowed this process to unfold.</p>
+                    </div>
+                    <p class="mt-4 pt-4 border-t"><strong>Conclusion:</strong> This is a model for how a mature democracy can handle questions of self-determination without violating universal rights, leaving the final outcome to the will of the people.</p>
+                `
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const pillarCards = document.querySelectorAll('.pillar-card');
+            const pillarDetails = document.getElementById('pillar-details');
+            const pillarDetailTitle = document.getElementById('pillar-detail-title');
+            const pillarDetailText = document.getElementById('pillar-detail-text');
+
+            const caseStudySelector = document.getElementById('case-study-selector');
+            const caseStudyDisplay = document.getElementById('case-study-display');
+            const caseStudyTitle = document.getElementById('case-study-title');
+            const caseStudyAnalysis = document.getElementById('case-study-analysis');
+            let activeCaseStudyButton = null;
+
+            pillarCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    pillarCards.forEach(c => c.classList.remove('active-pillar'));
+                    card.classList.add('active-pillar');
+                    
+                    const pillarId = card.id.split('-')[1];
+                    const data = pillarData[pillarId];
+
+                    pillarDetailTitle.textContent = data.title;
+                    pillarDetailText.textContent = data.text;
+                    pillarDetails.classList.remove('opacity-0');
+                });
+            });
+
+            Object.keys(caseStudiesData).forEach(key => {
+                const button = document.createElement('button');
+                button.textContent = key;
+                button.className = 'case-study-btn px-4 py-2 bg-white rounded-full shadow-sm font-semibold text-slate-700 hover:bg-teal-600 hover:text-white transition-all duration-300';
+                button.dataset.case = key;
+                caseStudySelector.appendChild(button);
+            });
+
+            const caseStudyButtons = document.querySelectorAll('.case-study-btn');
+            caseStudyButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    if (activeCaseStudyButton) {
+                        activeCaseStudyButton.classList.remove('active-case-study');
+                    }
+                    button.classList.add('active-case-study');
+                    activeCaseStudyButton = button;
+
+                    const caseKey = button.dataset.case;
+                    const data = caseStudiesData[caseKey];
+
+                    caseStudyTitle.textContent = data.title;
+                    caseStudyAnalysis.innerHTML = data.analysis;
+                    caseStudyDisplay.classList.remove('opacity-0');
+                });
+            });
+
+            if (caseStudyButtons.length > 0) {
+                caseStudyButtons[0].click();
+            }
+        });
+    </script>
+</body>
+</html>
