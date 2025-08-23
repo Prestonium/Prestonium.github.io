@@ -15,15 +15,24 @@
             -moz-osx-font-smoothing: grayscale;
             background-color: #1f2937; /* Dark background */
             color: #e5e7eb; /* Light text */
+            margin: 0;
+            padding: 0;
+            position: relative; /* Container for the absolute header */
+            padding-top: 15rem; /* Pushes content down so it's not hidden by the header */
         }
-        .container-bg {
-            background-color: #374151; /* Slightly lighter dark container */
+        #header-container {
+            background-color: rgba(55, 65, 81, 0.8); /* Semi-transparent background */
+            position: absolute; /* Overlaps the canvas */
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10; /* Ensures it sits on top */
+            backdrop-filter: blur(8px); /* Optional: Adds a blur effect for a more modern look */
         }
         svg {
             display: block;
             background-color: #374151;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            /* Removed border-radius and box-shadow for a full-screen feel */
             touch-action: none;
         }
         .node-circle {
@@ -133,9 +142,10 @@
         }
     </style>
 </head>
-<body class="min-h-screen p-8 flex flex-col items-center">
+<body class="p-0">
 
-    <div class="max-w-4xl w-full container-bg p-8 rounded-2xl shadow-lg">
+    <!-- Header Container -->
+    <div id="header-container" class="max-w-4xl mx-auto w-full px-8 py-6">
         <h1 class="text-3xl font-bold text-gray-100 mb-2 text-center">API Dependency Visualizer</h1>
         <p class="text-gray-300 mb-6 text-center">Upload a YAML file or use the default example to see an interactive graph of your API dependencies.</p>
         
@@ -149,7 +159,7 @@
         </div>
 
         <!-- Legend -->
-        <div class="flex items-center justify-center space-x-4 mb-4 text-gray-300">
+        <div class="flex flex-wrap items-center justify-center space-x-4 text-gray-300">
             <div class="flex items-center">
                 <span class="inline-block w-4 h-4 rounded-full bg-blue-500 mr-2"></span>
                 <span>API</span>
@@ -171,20 +181,20 @@
                 <span>Related APIs</span>
             </div>
         </div>
+    </div>
 
-        <!-- Visualization Container -->
-        <div id="visualizationContainer" class="relative w-full aspect-[4/3] rounded-2xl">
-            <svg id="dependencyGraph"></svg>
-            <div id="splashScreen" class="splash-text">
-                <p>Click "Choose YAML File" to get started.</p>
-                <p>Or wait a moment for the example graph to appear.</p>
-            </div>
-            <div id="loadingIndicator" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center space-y-4">
-                <div class="loader"></div>
-                <p class="text-gray-400 text-lg">Loading graph...</p>
-            </div>
-            <div id="tooltip" class="rounded-lg text-sm"></div>
+    <!-- Visualization Container -->
+    <div id="visualizationContainer" class="fixed inset-0">
+        <svg id="dependencyGraph"></svg>
+        <div id="splashScreen" class="splash-text">
+            <p>Click "Choose YAML File" to get started.</p>
+            <p>Or wait a moment for the example graph to appear.</p>
         </div>
+        <div id="loadingIndicator" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center space-y-4">
+            <div class="loader"></div>
+            <p class="text-gray-400 text-lg">Loading graph...</p>
+        </div>
+        <div id="tooltip" class="rounded-lg text-sm"></div>
     </div>
 
     <!-- D3.js library from CDN -->
@@ -199,15 +209,8 @@
             const splashScreen = document.getElementById('splashScreen');
             const loadingIndicator = document.getElementById('loadingIndicator');
 
-            const width = document.getElementById('visualizationContainer').clientWidth;
-            const height = document.getElementById('visualizationContainer').clientHeight;
+            let allGraphData = { nodes: [], links: [], relatedLinks: [] };
             
-            // Set SVG dimensions and viewbox for responsiveness
-            svg.attr("width", "100%")
-               .attr("height", "100%")
-               .attr("viewBox", `0 0 ${width} ${height}`)
-               .attr("preserveAspectRatio", "xMidYMid meet");
-
             // Define the SVG groups for links and nodes
             const g = svg.append("g");
             
@@ -251,30 +254,324 @@
                 });
             svg.call(zoom);
 
-            let allGraphData = { nodes: [], links: [], relatedLinks: [] };
-
-            // Create a force simulation
             const simulation = d3.forceSimulation()
                 .force("link", d3.forceLink().id(d => d.id).distance(600).strength(0.8))
                 .force("charge", d3.forceManyBody().strength(-1500))
-                .force("center", d3.forceCenter(width / 2, height / 2))
                 .force("collision", d3.forceCollide().radius(50));
+                
+            // Function to handle window resize
+            function resize() {
+                const visualizationContainer = document.getElementById('visualizationContainer');
+                const width = visualizationContainer.clientWidth;
+                const height = visualizationContainer.clientHeight;
+                
+                svg.attr("width", width).attr("height", height);
+
+                simulation.force("center", d3.forceCenter(width / 2, height / 2));
+                simulation.alpha(1).restart();
+            }
+            window.addEventListener('resize', resize);
+
 
             const sampleYaml = `
-api-one:
-    - PROD-api-two
-    - user-client-thing
-    - another-user
-    - api-three-PROD
-api-two:
-    - api-three-PROD
-api-three:
-    - junk-client-not-real
-    - metrics-listener
-logging-service:
-    - data-lake-service
-logging-service:
-    - another-service
+# -----------------------------------------------------------------------------
+# HUMAN RESOURCES DOMAIN
+# -----------------------------------------------------------------------------
+# EXP APIs (used by front-end applications)
+exp-api-employee-portal:
+  - int-api-employee-data
+  - int-api-payroll-info
+  - metrics-client
+  - employee-mobile-app
+  - employee-web-portal
+
+exp-api-benefits-enrollment:
+  - int-api-employee-data
+  - sys-api-third-party-benefits
+  - metrics-client
+  - benefits-enrollment-app
+
+exp-api-onboarding-workflow:
+  - int-api-employee-data
+  - sys-api-hr-legacy-systems
+  - metrics-client
+  - hr-admin-console
+
+exp-api-recruiting-dashboard:
+  - int-api-candidate-data
+  - sys-api-job-postings
+  - metrics-client
+  - recruiter-web-app
+
+# INT APIs (orchestrate data from SYS)
+int-api-employee-data:
+  - sys-api-employee-db
+  - sys-api-user-directory
+  - metrics-client
+
+int-api-payroll-info:
+  - sys-api-payroll-services
+  - metrics-client
+
+int-api-candidate-data:
+  - sys-api-candidate-db
+  - sys-api-hr-legacy-systems
+  - metrics-client
+
+# SYS APIs (core, foundational services)
+sys-api-employee-db:
+  - metrics-client
+
+sys-api-user-directory:
+  - metrics-client
+
+sys-api-payroll-services:
+  - metrics-client
+
+sys-api-third-party-benefits:
+  - metrics-client
+
+sys-api-hr-legacy-systems:
+  - metrics-client
+
+sys-api-candidate-db:
+  - metrics-client
+
+sys-api-job-postings:
+  - metrics-client
+
+# -----------------------------------------------------------------------------
+# FINANCE DOMAIN
+# -----------------------------------------------------------------------------
+# EXP APIs
+exp-api-billing-dashboard:
+  - int-api-invoice-data
+  - int-api-payment-gateway
+  - metrics-client
+  - customer-billing-portal
+
+exp-api-financial-reports:
+  - int-api-ledger-data
+  - metrics-client
+  - executive-dashboard
+
+exp-api-fraud-management:
+  - int-api-transaction-data
+  - sys-api-fraud-detection
+  - metrics-client
+  - fraud-analyst-console
+
+exp-api-expense-management:
+  - int-api-expense-data
+  - sys-api-receipt-storage
+  - metrics-client
+  - employee-expense-app
+
+# INT APIs
+int-api-invoice-data:
+  - sys-api-invoice-db
+  - sys-api-payment-history
+  - metrics-client
+
+int-api-payment-gateway:
+  - sys-api-payment-processor
+  - metrics-client
+
+int-api-ledger-data:
+  - sys-api-ledger-db
+  - metrics-client
+
+int-api-transaction-data:
+  - sys-api-transaction-log
+  - metrics-client
+
+int-api-expense-data:
+  - sys-api-expense-tracker
+  - metrics-client
+
+# SYS APIs
+sys-api-invoice-db:
+  - metrics-client
+
+sys-api-payment-history:
+  - metrics-client
+
+sys-api-payment-processor:
+  - metrics-client
+
+sys-api-ledger-db:
+  - metrics-client
+
+sys-api-transaction-log:
+  - metrics-client
+
+sys-api-fraud-detection:
+  - metrics-client
+
+sys-api-expense-tracker:
+  - metrics-client
+
+sys-api-receipt-storage:
+  - metrics-client
+
+# -----------------------------------------------------------------------------
+# LOGISTICS & SUPPLY CHAIN DOMAIN
+# -----------------------------------------------------------------------------
+# EXP APIs
+exp-api-order-tracking:
+  - int-api-shipment-status
+  - sys-api-customer-service
+  - metrics-client
+  - public-tracking-web
+
+exp-api-inventory-dashboard:
+  - int-api-stock-levels
+  - metrics-client
+  - warehouse-management-app
+
+exp-api-vendor-portal:
+  - int-api-vendor-data
+  - metrics-client
+  - external-vendor-app
+
+exp-api-shipping-cost:
+  - int-api-carrier-rates
+  - metrics-client
+  - sales-web-app
+
+# INT APIs
+int-api-shipment-status:
+  - sys-api-carrier-tracking
+  - sys-api-logistics-db
+  - metrics-client
+
+int-api-stock-levels:
+  - sys-api-warehouse-inventory
+  - sys-api-product-locations
+  - metrics-client
+
+int-api-vendor-data:
+  - sys-api-vendor-db
+  - metrics-client
+
+int-api-carrier-rates:
+  - sys-api-carrier-apis
+  - metrics-client
+
+# SYS APIs
+sys-api-carrier-tracking:
+  - metrics-client
+
+sys-api-logistics-db:
+  - metrics-client
+
+sys-api-customer-service:
+  - metrics-client
+
+sys-api-warehouse-inventory:
+  - metrics-client
+
+sys-api-product-locations:
+  - metrics-client
+
+sys-api-vendor-db:
+  - metrics-client
+
+sys-api-carrier-apis:
+  - metrics-client
+
+# -----------------------------------------------------------------------------
+# IVR (INTERACTIVE VOICE RESPONSE) DOMAIN
+# -----------------------------------------------------------------------------
+# EXP APIs (front end to voice system)
+exp-api-ivr-routing:
+  - int-api-call-flow
+  - sys-api-contact-center-db
+  - metrics-client
+  - ivr-user-experience
+
+exp-api-ivr-speech-to-text:
+  - int-api-voice-transcription
+  - metrics-client
+  - ivr-user-experience
+
+exp-api-ivr-text-to-speech:
+  - sys-api-voice-generation
+  - metrics-client
+  - ivr-user-experience
+
+exp-api-ivr-support-info:
+  - sys-api-faq-db
+  - metrics-client
+  - ivr-user-experience
+
+# INT APIs
+int-api-call-flow:
+  - sys-api-routing-engine
+  - metrics-client
+
+int-api-voice-transcription:
+  - sys-api-speech-processor
+  - metrics-client
+
+# SYS APIs
+sys-api-contact-center-db:
+  - metrics-client
+
+sys-api-routing-engine:
+  - metrics-client
+
+sys-api-speech-processor:
+  - metrics-client
+
+sys-api-voice-generation:
+  - metrics-client
+
+sys-api-faq-db:
+  - metrics-client
+
+# -----------------------------------------------------------------------------
+# SECURITY & IDENTITY DOMAIN
+# -----------------------------------------------------------------------------
+# EXP APIs
+exp-api-user-auth:
+  - int-api-identity-verification
+  - sys-api-auth-token
+  - metrics-client
+  - login-mobile-screen
+  - SSO-login-flow
+
+exp-api-password-reset:
+  - int-api-identity-verification
+  - sys-api-email-notification
+  - metrics-client
+  - forgot-password-form
+
+# INT APIs
+int-api-identity-verification:
+  - sys-api-user-directory
+  - sys-api-auth-service
+  - metrics-client
+
+# SYS APIs
+sys-api-auth-token:
+  - metrics-client
+
+sys-api-user-directory:
+  - metrics-client
+
+sys-api-auth-service:
+  - metrics-client
+
+sys-api-email-notification:
+  - metrics-client
+  
+# -----------------------------------------------------------------------------
+# UTILITY AND MISCELLANEOUS
+# -----------------------------------------------------------------------------
+# A "Client" is not an API that can be called, but rather a service or app that
+# pulls data from APIs. All of our APIs call it for healthcheck purposes.
+metrics-client:
 `;
 
             fileInput.addEventListener('change', (event) => {
@@ -490,6 +787,13 @@ logging-service:
                 // Clear previous graph
                 linksGroup.selectAll("*").remove();
                 nodesGroup.selectAll("*").remove();
+                
+                const visualizationContainer = document.getElementById('visualizationContainer');
+                const width = visualizationContainer.clientWidth;
+                const height = visualizationContainer.clientHeight;
+                
+                // Set SVG dimensions and viewbox for responsiveness
+                svg.attr("width", width).attr("height", height);
 
                 const nodesById = new Map(graphData.nodes.map(d => [d.id, d]));
 
@@ -683,6 +987,7 @@ logging-service:
                 const data = parseYamlManually(sampleYaml);
                 allGraphData = processYamlData(data);
                 updateGraph(allGraphData);
+                resize(); // Initial resize to fit the screen
             }
         });
     </script>
