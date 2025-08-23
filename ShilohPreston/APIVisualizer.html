@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAML Dependency Visualizer</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #1f2937; /* Dark background */
+            color: #e5e7eb; /* Light text */
+        }
+        .container-bg {
+            background-color: #374151; /* Slightly lighter dark container */
+        }
+        svg {
+            display: block;
+            background-color: #374151;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            touch-action: none;
+        }
+        .node-circle {
+            stroke: #374151; /* Matches container background */
+            stroke-width: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .node-circle.active {
+            stroke: #60a5fa; /* Lighter blue for active state */
+            stroke-width: 4px;
+        }
+        .link {
+            stroke: #9ca3af; /* Lighter gray for links */
+            stroke-opacity: 0.6;
+            stroke-width: 2px;
+            transition: all 0.2s ease-in-out;
+        }
+        .link.active {
+            stroke: #60a5fa;
+            stroke-width: 3px;
+            stroke-opacity: 1;
+        }
+        .node-label {
+            pointer-events: none;
+            text-anchor: middle;
+            font-size: 10px;
+            fill: #d1d5db; /* Light gray label */
+            user-select: none;
+        }
+        .highlighted-label {
+            font-weight: 700;
+            font-size: 12px;
+            fill: #f3f4f6; /* Very light label */
+        }
+        #tooltip {
+            position: absolute;
+            padding: 8px;
+            background-color: rgba(55, 65, 81, 0.9); /* Dark background with opacity */
+            border: 1px solid #4b5563;
+            color: #d1d5db;
+            border-radius: 6px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .splash-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 1.25rem;
+            color: #d1d5db;
+            user-select: none;
+        }
+        /* Loading spinner animation */
+        .loader {
+            border: 4px solid #4b5563; /* Darker border */
+            border-top: 4px solid #60a5fa; /* Lighter blue for spinner */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-8 flex flex-col items-center">
+
+    <div class="max-w-4xl w-full container-bg p-8 rounded-2xl shadow-lg">
+        <h1 class="text-3xl font-bold text-gray-100 mb-2 text-center">API Dependency Visualizer</h1>
+        <p class="text-gray-300 mb-6 text-center">Upload a YAML file or use the default example to see an interactive graph of your API dependencies.</p>
+        
+        <!-- File Input and Controls -->
+        <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-8">
+            <label for="yamlFileInput" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-full shadow-md cursor-pointer transition-colors duration-200">
+                Choose YAML File
+            </label>
+            <input type="file" id="yamlFileInput" class="hidden" accept=".yaml, .yml">
+            <input type="text" id="searchInput" placeholder="Search API..." class="px-4 py-2 border border-gray-600 bg-gray-700 text-gray-100 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 w-full sm:w-1/2">
+        </div>
+
+        <!-- Legend -->
+        <div class="flex items-center justify-center space-x-4 mb-4 text-gray-300">
+            <div class="flex items-center">
+                <span class="inline-block w-4 h-4 rounded-full bg-blue-500 mr-2"></span>
+                <span>API</span>
+            </div>
+            <div class="flex items-center">
+                <span class="inline-block w-4 h-4 rounded-full bg-orange-400 mr-2"></span>
+                <span>Client/App</span>
+            </div>
+        </div>
+
+        <!-- Visualization Container -->
+        <div id="visualizationContainer" class="relative w-full aspect-[4/3] rounded-2xl">
+            <svg id="dependencyGraph"></svg>
+            <div id="splashScreen" class="splash-text">
+                <p>Click "Choose YAML File" to get started.</p>
+                <p>Or wait a moment for the example graph to appear.</p>
+            </div>
+            <div id="loadingIndicator" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center space-y-4">
+                <div class="loader"></div>
+                <p class="text-gray-400 text-lg">Loading graph...</p>
+            </div>
+            <div id="tooltip" class="rounded-lg text-sm"></div>
+        </div>
+    </div>
+
+    <!-- YAML Parser and D3.js libraries from CDNs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('yamlFileInput');
+            const searchInput = document.getElementById('searchInput');
+            const svg = d3.select("#dependencyGraph");
+            const tooltip = d3.select("#tooltip");
+            const splashScreen = document.getElementById('splashScreen');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+
+            const width = document.getElementById('visualizationContainer').clientWidth;
+            const height = document.getElementById('visualizationContainer').clientHeight;
+            
+            // Set SVG dimensions and viewbox for responsiveness
+            svg.attr("width", "100%")
+               .attr("height", "100%")
+               .attr("viewBox", `0 0 ${width} ${height}`)
+               .attr("preserveAspectRatio", "xMidYMid meet");
+
+            // Define the SVG groups for links and nodes
+            const g = svg.append("g");
+            
+            // Define arrowhead marker
+            svg.append("defs").append("marker")
+                .attr("id", "arrowhead")
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 25) // Adjust to position arrowhead on circle's edge
+                .attr("refY", 0)
+                .attr("orient", "auto")
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("xoverflow", "visible")
+                .append("path")
+                .attr("d", "M 0,-5 L 10 ,0 L 0,5")
+                .attr("fill", "#9ca3af")
+                .style("stroke", "none");
+
+            const linksGroup = g.append("g").attr("class", "links");
+            const nodesGroup = g.append("g").attr("class", "nodes");
+            
+            // Set up a zoom handler
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 8])
+                .on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                });
+            svg.call(zoom);
+
+            let allGraphData = { nodes: [], links: [] };
+
+            // Create a force simulation
+            const simulation = d3.forceSimulation()
+                .force("link", d3.forceLink().id(d => d.id).distance(100).strength(0.8))
+                .force("charge", d3.forceManyBody().strength(-300))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(30));
+
+            const sampleYaml = `
+api-one:
+    - PROD-api-two
+    - user-client-thing
+    - another-user
+    - api-three-PROD
+api-two:
+    - api-three-PROD
+api-three:
+    - junk-client-not-real
+    - metrics-listener
+`;
+
+            fileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) {
+                    return;
+                }
+
+                splashScreen.style.display = 'none';
+                loadingIndicator.classList.remove('hidden');
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const yamlContent = e.target.result;
+                        const data = jsyaml.load(yamlContent);
+                        
+                        allGraphData = processYamlData(data);
+                        updateGraph(allGraphData);
+                        
+                    } catch (error) {
+                        console.error("Error parsing YAML:", error);
+                        // Using a modal-like div instead of alert
+                        const errorMessage = document.createElement('div');
+                        errorMessage.style.cssText = `
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            background: white;
+                            padding: 2rem;
+                            border-radius: 1rem;
+                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                            z-index: 100;
+                            text-align: center;
+                            color: #1f2937;
+                        `;
+                        errorMessage.innerHTML = `
+                            <p class="text-red-500 font-bold mb-4">Error</p>
+                            <p>Could not parse YAML file. Please check the file format.</p>
+                        `;
+                        document.body.appendChild(errorMessage);
+                        setTimeout(() => errorMessage.remove(), 5000);
+                        loadingIndicator.classList.add('hidden');
+                    }
+                };
+                reader.readAsText(file);
+            });
+            
+            searchInput.addEventListener('input', (event) => {
+                const query = event.target.value.toLowerCase();
+                filterGraph(query);
+            });
+
+            function processYamlData(yamlObject) {
+                const nodes = new Map();
+                const links = [];
+                const envPrefix = /^(prod-|dev-|stage-|test-)/i;
+                const envSuffix = /(-prod|-dev|-stage|-test)$/i;
+
+                // Helper function to get the canonical name by removing known prefixes and whitespace
+                const getCanonicalName = (name) => {
+                    let canonicalName = name.trim();
+                    canonicalName = canonicalName.replace(envPrefix, '');
+                    canonicalName = canonicalName.replace(envSuffix, '');
+                    return canonicalName;
+                };
+
+                // Step 1: Collect all unique, canonical node IDs from keys and dependencies
+                const canonicalIds = new Set();
+                const topLevelKeys = new Set();
+
+                for (const key in yamlObject) {
+                    if (yamlObject.hasOwnProperty(key)) {
+                        const cleanKey = getCanonicalName(key);
+                        canonicalIds.add(cleanKey);
+                        topLevelKeys.add(cleanKey);
+                        
+                        const dependencies = yamlObject[key];
+                        if (Array.isArray(dependencies)) {
+                            dependencies.forEach(dep => {
+                                canonicalIds.add(getCanonicalName(dep));
+                            });
+                        }
+                    }
+                }
+                
+                // Step 2: Create a single node for each canonical ID, assigning type based on top-level keys
+                for (const id of canonicalIds) {
+                    const isApi = topLevelKeys.has(id);
+                    nodes.set(id, {
+                        id: id,
+                        type: isApi ? 'api' : 'client'
+                    });
+                }
+
+                // Step 3: Create the links using the canonical IDs
+                for (const sourceApi in yamlObject) {
+                    if (yamlObject.hasOwnProperty(sourceApi)) {
+                        const cleanSourceApi = getCanonicalName(sourceApi);
+                        const dependencies = yamlObject[sourceApi];
+                        if (Array.isArray(dependencies)) {
+                            dependencies.forEach(targetApi => {
+                                const cleanTargetApi = getCanonicalName(targetApi);
+                                links.push({
+                                    source: cleanSourceApi,
+                                    target: cleanTargetApi
+                                });
+                            });
+                        }
+                    }
+                }
+                
+                return {
+                    nodes: Array.from(nodes.values()),
+                    links: links
+                };
+            }
+
+            function updateGraph(graphData) {
+                // Hide loading indicator
+                loadingIndicator.classList.add('hidden');
+
+                // Clear previous graph
+                linksGroup.selectAll("*").remove();
+                nodesGroup.selectAll("*").remove();
+
+                // Create links
+                const link = linksGroup.selectAll("line")
+                    .data(graphData.links)
+                    .enter().append("line")
+                    .attr("class", "link")
+                    .attr("marker-end", "url(#arrowhead)");
+
+                // Create nodes
+                const node = nodesGroup.selectAll("g")
+                    .data(graphData.nodes)
+                    .enter().append("g")
+                    .attr("class", "node");
+
+                const circles = node.append("circle")
+                    .attr("class", "node-circle")
+                    .attr("r", 15)
+                    .attr("fill", d => d.type === 'api' ? "#3b82f6" : "#f59e0b") /* Adjusted colors for dark mode */
+                    .call(d3.drag()
+                        .on("start", dragstarted)
+                        .on("drag", dragged)
+                        .on("end", dragended));
+                
+                // Add labels
+                const labels = node.append("text")
+                    .attr("class", "node-label")
+                    .attr("dy", "0.3em")
+                    .text(d => d.id);
+                
+                // Handle click events for highlighting
+                node.on("click", (event, d) => {
+                    const isAlreadyActive = d3.select(event.currentTarget).select("circle").classed("active");
+                    
+                    // Reset all highlights
+                    circles.classed("active", false);
+                    link.classed("active", false);
+                    labels.classed("highlighted-label", false);
+                    
+                    if (!isAlreadyActive) {
+                        // Highlight the clicked node
+                        d3.select(event.currentTarget).select("circle").classed("active", true);
+                        d3.select(event.currentTarget).select("text").classed("highlighted-label", true);
+                        
+                        // Highlight incoming and outgoing links
+                        link.filter(l => l.source.id === d.id || l.target.id === d.id)
+                            .classed("active", true);
+
+                        // Highlight source and target nodes
+                        node.filter(n => graphData.links.some(l => 
+                            (l.source.id === d.id && l.target.id === n.id) ||
+                            (l.target.id === d.id && l.source.id === n.id)
+                        ))
+                        .select("circle").classed("active", true);
+                    }
+                });
+                
+                // Add hover tooltip
+                node.on("mouseover", (event, d) => {
+                    tooltip.html(`<strong>${d.id}</strong><br>Type: ${d.type === 'api' ? 'API' : 'Client'}`)
+                        .style("opacity", 1);
+                }).on("mousemove", (event) => {
+                    tooltip.style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY + 10) + "px");
+                }).on("mouseout", () => {
+                    tooltip.style("opacity", 0);
+                });
+
+                // Update simulation forces
+                simulation.nodes(graphData.nodes);
+                simulation.force("link").links(graphData.links);
+                simulation.alpha(1).restart();
+
+                // Update positions on each tick
+                simulation.on("tick", () => {
+                    link
+                        .attr("x1", d => d.source.x)
+                        .attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x)
+                        .attr("y2", d => d.target.y);
+
+                    node
+                        .attr("transform", d => `translate(${d.x}, ${d.y})`);
+                });
+
+                function dragstarted(event, d) {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = d.x;
+                    d.fy = d.y;
+                }
+
+                function dragged(event, d) {
+                    d.fx = event.x;
+                    d.fy = event.y;
+                }
+
+                function dragended(event, d) {
+                    if (!event.active) simulation.alphaTarget(0);
+                    d.fx = null;
+                    d.fy = null;
+                }
+            }
+
+            // Function to filter the graph based on a search query
+            function filterGraph(query) {
+                // Determine visible nodes and links
+                const visibleNodes = new Set();
+                const visibleLinks = new Set();
+
+                if (query.length > 0) {
+                    // Find nodes that match the query
+                    const matchedNodes = allGraphData.nodes.filter(d => d.id.toLowerCase().includes(query));
+                    
+                    matchedNodes.forEach(node => {
+                        visibleNodes.add(node);
+                        // Find incoming and outgoing links and their corresponding nodes
+                        allGraphData.links.forEach(link => {
+                            if (link.source.id === node.id) {
+                                visibleNodes.add(link.target);
+                                visibleLinks.add(link);
+                            }
+                            if (link.target.id === node.id) {
+                                visibleNodes.add(link.source);
+                                visibleLinks.add(link);
+                            }
+                        });
+                    });
+                } else {
+                    // If query is empty, show all nodes
+                    allGraphData.nodes.forEach(node => visibleNodes.add(node));
+                    allGraphData.links.forEach(link => visibleLinks.add(link));
+                }
+
+                // Update the graph with the filtered data
+                updateGraph({
+                    nodes: Array.from(visibleNodes),
+                    links: Array.from(visibleLinks)
+                });
+            }
+
+            // Automatically load the sample data on initial page load
+            window.onload = function() {
+                const data = jsyaml.load(sampleYaml);
+                allGraphData = processYamlData(data);
+                updateGraph(allGraphData);
+            }
+        });
+    </script>
+</body>
+</html>
