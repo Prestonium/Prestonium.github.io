@@ -187,8 +187,7 @@
         </div>
     </div>
 
-    <!-- YAML Parser and D3.js libraries from CDNs -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <!-- D3.js library from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     
     <script>
@@ -272,6 +271,10 @@ api-two:
 api-three:
     - junk-client-not-real
     - metrics-listener
+logging-service:
+    - data-lake-service
+logging-service:
+    - another-service
 `;
 
             fileInput.addEventListener('change', (event) => {
@@ -287,7 +290,8 @@ api-three:
                 reader.onload = (e) => {
                     try {
                         const yamlContent = e.target.result;
-                        const data = jsyaml.load(yamlContent);
+                        // Use the new manual parser to handle duplicate keys
+                        const data = parseYamlManually(yamlContent);
                         
                         allGraphData = processYamlData(data);
                         updateGraph(allGraphData);
@@ -325,13 +329,55 @@ api-three:
                 const query = event.target.value.toLowerCase();
                 filterGraph(query);
             });
+            
+            // New manual parsing function to handle duplicate top-level keys
+            function parseYamlManually(yamlString) {
+                const lines = yamlString.split('\n');
+                const result = {};
+                let currentKey = null;
+                const keyCounts = new Map();
+
+                lines.forEach(line => {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.length === 0 || trimmedLine.startsWith('#')) {
+                        return;
+                    }
+
+                    // Check for a new top-level key (starts at the beginning of the line)
+                    const keyMatch = trimmedLine.match(/^([a-zA-Z0-9_-]+):/);
+                    if (keyMatch) {
+                        const originalKey = keyMatch[1];
+                        let count = keyCounts.get(originalKey) || 0;
+                        count++;
+                        keyCounts.set(originalKey, count);
+                        
+                        // If it's a duplicate, append a unique suffix
+                        currentKey = originalKey;
+                        if (count > 1) {
+                            currentKey = `${originalKey}-dup-${count}`;
+                        }
+                        result[currentKey] = [];
+                        return;
+                    }
+
+                    // Check for a list item (starts with a hyphen)
+                    const itemMatch = trimmedLine.match(/^- ([a-zA-Z0-9_-]+)/);
+                    if (itemMatch && currentKey) {
+                        result[currentKey].push(itemMatch[1]);
+                    }
+                });
+
+                return result;
+            }
 
             function processYamlData(yamlObject) {
                 const nodes = new Map();
                 const links = [];
                 const relatedLinks = [];
-                const envPrefix = /^(prod-|dev-|stage-|test-)/i;
-                const envSuffix = /(-prod|-dev|-stage|-test)$/i;
+                
+                // Regex to strip environment prefixes/suffixes and the new duplicate suffix
+                const envPrefix = /^(prod-|dev-|stage-|test-|[a-zA-Z0-9_-]+-dup-)/i;
+                const envSuffix = /(-prod|-dev|-stage|-test|-dup-[0-9]+)$/i;
 
                 const canonicalCounts = new Map();
                 const keyToUniqueId = new Map();
@@ -634,7 +680,7 @@ api-three:
 
             // Automatically load the sample data on initial page load
             window.onload = function() {
-                const data = jsyaml.load(sampleYaml);
+                const data = parseYamlManually(sampleYaml);
                 allGraphData = processYamlData(data);
                 updateGraph(allGraphData);
             }
