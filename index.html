@@ -376,8 +376,8 @@ logging-service:
                 const relatedLinks = [];
                 
                 // Regex to strip environment prefixes/suffixes and the new duplicate suffix
-                const envPrefix = /^(prod-|dev-|stage-|test-|[a-zA-Z0-9_-]+-dup-)/i;
-                const envSuffix = /(-prod|-dev|-stage|-test|-dup-[0-9]+)$/i;
+                const envPrefix = /^(prod-|dev-|stage-|test-|prd-|[a-zA-Z0-9_-]+-dup-)/i;
+                const envSuffix = /(-prod|-dev|-stage|-test|-prd|-dup-[0-9]+)$/i;
 
                 const canonicalCounts = new Map();
                 const keyToUniqueId = new Map();
