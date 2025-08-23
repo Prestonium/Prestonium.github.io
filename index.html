@@ -30,19 +30,38 @@
             stroke: #374151; /* Matches container background */
             stroke-width: 2px;
             cursor: pointer;
-            transition: all 0.2s ease-in-out;
+            transition: stroke 0.2s ease-in-out;
         }
         .node-circle.active {
             stroke: #60a5fa; /* Lighter blue for active state */
-            stroke-width: 4px;
+            stroke-width: 6px;
         }
+        /* Style for a standard dependency link (client to API or API to client) */
         .link {
-            stroke: #9ca3af; /* Lighter gray for links */
-            stroke-opacity: 0.6;
+            stroke: #22c55e; /* Green for links */
+            stroke-opacity: 0.8;
             stroke-width: 2px;
             transition: all 0.2s ease-in-out;
+            fill: none;
+            stroke-dasharray: 10, 5;
+            animation: flow 2s linear infinite;
         }
         .link.active {
+            stroke: #60a5fa;
+            stroke-width: 3px;
+            stroke-opacity: 1;
+        }
+        /* Style for an API-to-API link */
+        .api-api-link {
+            stroke: #f97316; /* Orange for API-to-API links */
+            stroke-opacity: 0.8;
+            stroke-width: 2px;
+            transition: all 0.2s ease-in-out;
+            fill: none;
+            stroke-dasharray: 10, 5;
+            animation: flow 2s linear infinite;
+        }
+        .api-api-link.active {
             stroke: #60a5fa;
             stroke-width: 3px;
             stroke-opacity: 1;
@@ -94,6 +113,24 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Styles for the related, solid grey relationship line */
+        .related-link {
+            stroke: #9ca3af; /* Solid grey */
+            stroke-width: 2px;
+            transition: all 0.2s ease-in-out;
+        }
+        .related-link.active {
+            stroke: #9ca3af;
+            stroke-width: 3px;
+        }
+        
+        /* Animation for the dashed line to simulate flow */
+        @keyframes flow {
+            to {
+                stroke-dashoffset: -15;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen p-8 flex flex-col items-center">
@@ -120,6 +157,18 @@
             <div class="flex items-center">
                 <span class="inline-block w-4 h-4 rounded-full bg-orange-400 mr-2"></span>
                 <span>Client/App</span>
+            </div>
+            <div class="flex items-center">
+                <svg width="24" height="2" class="mr-2">
+                    <line x1="0" y1="1" x2="24" y2="1" style="stroke:#f97316;stroke-width:2" />
+                </svg>
+                <span>API to API Call</span>
+            </div>
+            <div class="flex items-center">
+                <svg width="24" height="2" class="mr-2">
+                    <line x1="0" y1="1" x2="24" y2="1" style="stroke:#9ca3af;stroke-width:2" />
+                </svg>
+                <span>Related APIs</span>
             </div>
         </div>
 
@@ -165,9 +214,9 @@
             
             // Define arrowhead marker
             svg.append("defs").append("marker")
-                .attr("id", "arrowhead")
+                .attr("id", "arrowhead-green")
                 .attr("viewBox", "0 -5 10 10")
-                .attr("refX", 25) // Adjust to position arrowhead on circle's edge
+                .attr("refX", 50) 
                 .attr("refY", 0)
                 .attr("orient", "auto")
                 .attr("markerWidth", 6)
@@ -175,7 +224,21 @@
                 .attr("xoverflow", "visible")
                 .append("path")
                 .attr("d", "M 0,-5 L 10 ,0 L 0,5")
-                .attr("fill", "#9ca3af")
+                .attr("fill", "#22c55e")
+                .style("stroke", "none");
+
+            svg.append("defs").append("marker")
+                .attr("id", "arrowhead-orange")
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 50) 
+                .attr("refY", 0)
+                .attr("orient", "auto")
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("xoverflow", "visible")
+                .append("path")
+                .attr("d", "M 0,-5 L 10 ,0 L 0,5")
+                .attr("fill", "#f97316")
                 .style("stroke", "none");
 
             const linksGroup = g.append("g").attr("class", "links");
@@ -189,14 +252,14 @@
                 });
             svg.call(zoom);
 
-            let allGraphData = { nodes: [], links: [] };
+            let allGraphData = { nodes: [], links: [], relatedLinks: [] };
 
             // Create a force simulation
             const simulation = d3.forceSimulation()
-                .force("link", d3.forceLink().id(d => d.id).distance(100).strength(0.8))
-                .force("charge", d3.forceManyBody().strength(-300))
+                .force("link", d3.forceLink().id(d => d.id).distance(600).strength(0.8))
+                .force("charge", d3.forceManyBody().strength(-1500))
                 .force("center", d3.forceCenter(width / 2, height / 2))
-                .force("collision", d3.forceCollide().radius(30));
+                .force("collision", d3.forceCollide().radius(50));
 
             const sampleYaml = `
 api-one:
@@ -266,10 +329,13 @@ api-three:
             function processYamlData(yamlObject) {
                 const nodes = new Map();
                 const links = [];
+                const relatedLinks = [];
                 const envPrefix = /^(prod-|dev-|stage-|test-)/i;
                 const envSuffix = /(-prod|-dev|-stage|-test)$/i;
 
-                // Helper function to get the canonical name by removing known prefixes and whitespace
+                const canonicalCounts = new Map();
+                const keyToUniqueId = new Map();
+
                 const getCanonicalName = (name) => {
                     let canonicalName = name.trim();
                     canonicalName = canonicalName.replace(envPrefix, '');
@@ -277,38 +343,67 @@ api-three:
                     return canonicalName;
                 };
 
-                // Step 1: Collect all unique, canonical node IDs from keys and dependencies
-                const canonicalIds = new Set();
-                const topLevelKeys = new Set();
+                // Step 1: Process top-level keys to create a unique ID for each and build a list of all canonical IDs
+                const allCanonicalIds = new Set();
+                const canonicalToUniqueIds = new Map();
 
                 for (const key in yamlObject) {
                     if (yamlObject.hasOwnProperty(key)) {
-                        const cleanKey = getCanonicalName(key);
-                        canonicalIds.add(cleanKey);
-                        topLevelKeys.add(cleanKey);
+                        const canonicalName = getCanonicalName(key);
+                        allCanonicalIds.add(canonicalName);
+
+                        let uniqueId = canonicalName;
+                        if (canonicalCounts.has(canonicalName)) {
+                            const count = canonicalCounts.get(canonicalName) + 1;
+                            canonicalCounts.set(canonicalName, count);
+                            uniqueId = `${canonicalName} (${count})`;
+                        } else {
+                            canonicalCounts.set(canonicalName, 0);
+                        }
+                        keyToUniqueId.set(key, uniqueId);
+                        
+                        // Store the mapping from canonical name to its unique IDs
+                        if (!canonicalToUniqueIds.has(canonicalName)) {
+                            canonicalToUniqueIds.set(canonicalName, []);
+                        }
+                        canonicalToUniqueIds.get(canonicalName).push(uniqueId);
                         
                         const dependencies = yamlObject[key];
                         if (Array.isArray(dependencies)) {
                             dependencies.forEach(dep => {
-                                canonicalIds.add(getCanonicalName(dep));
+                                allCanonicalIds.add(getCanonicalName(dep));
                             });
                         }
                     }
                 }
-                
-                // Step 2: Create a single node for each canonical ID, assigning type based on top-level keys
-                for (const id of canonicalIds) {
-                    const isApi = topLevelKeys.has(id);
+
+                // Step 2: Create a single node for each canonical ID
+                for (const id of allCanonicalIds) {
+                    const isApi = canonicalToUniqueIds.has(id);
                     nodes.set(id, {
                         id: id,
                         type: isApi ? 'api' : 'client'
                     });
                 }
+                
+                // Add nodes for de-duplicated top-level keys
+                for (const [canonicalName, uniqueIds] of canonicalToUniqueIds.entries()) {
+                    if (uniqueIds.length > 1) {
+                         uniqueIds.forEach(id => {
+                            if (!nodes.has(id)) {
+                                nodes.set(id, {
+                                    id: id,
+                                    type: 'api'
+                                });
+                            }
+                        });
+                    }
+                }
 
                 // Step 3: Create the links using the canonical IDs
                 for (const sourceApi in yamlObject) {
                     if (yamlObject.hasOwnProperty(sourceApi)) {
-                        const cleanSourceApi = getCanonicalName(sourceApi);
+                        const cleanSourceApi = keyToUniqueId.get(sourceApi);
                         const dependencies = yamlObject[sourceApi];
                         if (Array.isArray(dependencies)) {
                             dependencies.forEach(targetApi => {
@@ -322,26 +417,66 @@ api-three:
                     }
                 }
                 
+                // Step 4: Create special links for related nodes
+                for (const [canonicalName, uniqueIds] of canonicalToUniqueIds.entries()) {
+                    if (uniqueIds.length > 1) {
+                        for (let i = 0; i < uniqueIds.length - 1; i++) {
+                            relatedLinks.push({
+                                source: uniqueIds[i],
+                                target: uniqueIds[i+1]
+                            });
+                        }
+                    }
+                }
+
                 return {
                     nodes: Array.from(nodes.values()),
-                    links: links
+                    links: links,
+                    relatedLinks: relatedLinks
                 };
             }
 
             function updateGraph(graphData) {
                 // Hide loading indicator
                 loadingIndicator.classList.add('hidden');
+                splashScreen.style.display = 'none';
 
                 // Clear previous graph
                 linksGroup.selectAll("*").remove();
                 nodesGroup.selectAll("*").remove();
 
-                // Create links
-                const link = linksGroup.selectAll("line")
-                    .data(graphData.links)
+                const nodesById = new Map(graphData.nodes.map(d => [d.id, d]));
+
+                // Separate links into two groups based on node types
+                const apiToApiLinks = graphData.links.filter(d => 
+                    nodesById.get(d.source)?.type === 'api' && nodesById.get(d.target)?.type === 'api'
+                );
+                const otherLinks = graphData.links.filter(d => 
+                    !(nodesById.get(d.source)?.type === 'api' && nodesById.get(d.target)?.type === 'api')
+                );
+
+                // Create solid grey related links
+                const relatedLink = linksGroup.selectAll(".related-link")
+                    .data(graphData.relatedLinks)
+                    .enter().append("line")
+                    .attr("class", "related-link");
+
+                // Create dependency links with green flow animation
+                const otherLink = linksGroup.selectAll(".link")
+                    .data(otherLinks)
                     .enter().append("line")
                     .attr("class", "link")
-                    .attr("marker-end", "url(#arrowhead)");
+                    .attr("marker-end", "url(#arrowhead-green)");
+
+                // Create API-to-API links with orange flow animation
+                const apiToApiLink = linksGroup.selectAll(".api-api-link")
+                    .data(apiToApiLinks)
+                    .enter().append("line")
+                    .attr("class", "api-api-link")
+                    .attr("marker-end", "url(#arrowhead-orange)");
+
+                // Combine all link types for simulation
+                const allLinks = graphData.relatedLinks.concat(apiToApiLinks).concat(otherLinks);
 
                 // Create nodes
                 const node = nodesGroup.selectAll("g")
@@ -351,8 +486,8 @@ api-three:
 
                 const circles = node.append("circle")
                     .attr("class", "node-circle")
-                    .attr("r", 15)
-                    .attr("fill", d => d.type === 'api' ? "#3b82f6" : "#f59e0b") /* Adjusted colors for dark mode */
+                    .attr("r", 45)
+                    .attr("fill", d => d.type === 'api' ? "#3b82f6" : "#f59e0b")
                     .call(d3.drag()
                         .on("start", dragstarted)
                         .on("drag", dragged)
@@ -361,7 +496,7 @@ api-three:
                 // Add labels
                 const labels = node.append("text")
                     .attr("class", "node-label")
-                    .attr("dy", "0.3em")
+                    .attr("dy", "0.5em")
                     .text(d => d.id);
                 
                 // Handle click events for highlighting
@@ -370,7 +505,9 @@ api-three:
                     
                     // Reset all highlights
                     circles.classed("active", false);
-                    link.classed("active", false);
+                    otherLink.classed("active", false);
+                    apiToApiLink.classed("active", false);
+                    relatedLink.classed("active", false);
                     labels.classed("highlighted-label", false);
                     
                     if (!isAlreadyActive) {
@@ -379,11 +516,17 @@ api-three:
                         d3.select(event.currentTarget).select("text").classed("highlighted-label", true);
                         
                         // Highlight incoming and outgoing links
-                        link.filter(l => l.source.id === d.id || l.target.id === d.id)
+                        otherLink.filter(l => l.source.id === d.id || l.target.id === d.id)
+                            .classed("active", true);
+                        apiToApiLink.filter(l => l.source.id === d.id || l.target.id === d.id)
+                            .classed("active", true);
+
+                        // Highlight related links
+                        relatedLink.filter(l => l.source.id === d.id || l.target.id === d.id)
                             .classed("active", true);
 
                         // Highlight source and target nodes
-                        node.filter(n => graphData.links.some(l => 
+                        node.filter(n => allLinks.some(l => 
                             (l.source.id === d.id && l.target.id === n.id) ||
                             (l.target.id === d.id && l.source.id === n.id)
                         ))
@@ -404,12 +547,24 @@ api-three:
 
                 // Update simulation forces
                 simulation.nodes(graphData.nodes);
-                simulation.force("link").links(graphData.links);
+                simulation.force("link").links(allLinks);
                 simulation.alpha(1).restart();
 
                 // Update positions on each tick
                 simulation.on("tick", () => {
-                    link
+                    otherLink
+                        .attr("x1", d => d.source.x)
+                        .attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x)
+                        .attr("y2", d => d.target.y);
+
+                    apiToApiLink
+                        .attr("x1", d => d.source.x)
+                        .attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x)
+                        .attr("y2", d => d.target.y);
+                    
+                    relatedLink
                         .attr("x1", d => d.source.x)
                         .attr("y1", d => d.source.y)
                         .attr("x2", d => d.target.x)
@@ -439,38 +594,41 @@ api-three:
 
             // Function to filter the graph based on a search query
             function filterGraph(query) {
-                // Determine visible nodes and links
                 const visibleNodes = new Set();
                 const visibleLinks = new Set();
+                const visibleRelatedLinks = new Set();
+                const nodesById = new Map(allGraphData.nodes.map(d => [d.id, d]));
 
                 if (query.length > 0) {
-                    // Find nodes that match the query
                     const matchedNodes = allGraphData.nodes.filter(d => d.id.toLowerCase().includes(query));
                     
                     matchedNodes.forEach(node => {
                         visibleNodes.add(node);
-                        // Find incoming and outgoing links and their corresponding nodes
-                        allGraphData.links.forEach(link => {
-                            if (link.source.id === node.id) {
-                                visibleNodes.add(link.target);
-                                visibleLinks.add(link);
+                        allGraphData.links.forEach(l => {
+                            if (l.source.id === node.id || l.target.id === node.id) {
+                                visibleNodes.add(nodesById.get(l.source.id));
+                                visibleNodes.add(nodesById.get(l.target.id));
+                                visibleLinks.add(l);
                             }
-                            if (link.target.id === node.id) {
-                                visibleNodes.add(link.source);
-                                visibleLinks.add(link);
+                        });
+                        allGraphData.relatedLinks.forEach(l => {
+                            if (l.source.id === node.id || l.target.id === node.id) {
+                                visibleNodes.add(nodesById.get(l.source.id));
+                                visibleNodes.add(nodesById.get(l.target.id));
+                                visibleRelatedLinks.add(l);
                             }
                         });
                     });
                 } else {
-                    // If query is empty, show all nodes
                     allGraphData.nodes.forEach(node => visibleNodes.add(node));
                     allGraphData.links.forEach(link => visibleLinks.add(link));
+                    allGraphData.relatedLinks.forEach(link => visibleRelatedLinks.add(link));
                 }
 
-                // Update the graph with the filtered data
                 updateGraph({
                     nodes: Array.from(visibleNodes),
-                    links: Array.from(visibleLinks)
+                    links: Array.from(visibleLinks),
+                    relatedLinks: Array.from(visibleRelatedLinks)
                 });
             }
 
