@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTG Color Quiz</title>
+    <!-- Use Tailwind CSS for a clean, modern look -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Chart.js for the radar graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Use Vue 3 from a CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white shadow-xl rounded-xl p-8 w-full max-w-2xl">
+        <!-- Quiz Section -->
+        <div v-if="!quizCompleted">
+            <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Your MTG Color Identity</h1>
+            <div class="mb-4">
+                <div class="relative pt-1">
+                    <div class="flex h-2 mb-4 overflow-hidden text-xs rounded bg-gray-200">
+                        <div :style="{ width: quizProgress + '%' }" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500 transition-all duration-300"></div>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-500 text-center">Question {{ currentQuestionIndex + 1 }} of {{ questions.length }}</div>
+            </div>
+
+            <div v-if="currentQuestion" class="mt-8">
+                <h2 class="text-xl font-semibold text-center mb-6 text-gray-700">{{ currentQuestion.text }}</h2>
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <button
+                        v-for="(option, index) in currentQuestion.options"
+                        :key="index"
+                        @click="answerQuestion(option.scores)"
+                        class="bg-gray-100 hover:bg-indigo-100 text-gray-800 font-medium py-3 px-6 rounded-lg transition-colors duration-200 border border-gray-300 hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 text-left"
+                    >
+                        {{ option.text }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div v-else>
+            <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Your Results</h1>
+            <div class="flex justify-center mb-8">
+                <canvas id="mtgChart" class="max-w-md"></canvas>
+            </div>
+            
+            <div class="text-center text-lg text-gray-700 mb-6">
+                <p class="font-semibold text-xl mb-2">Based on your answers, your primary color identity is:</p>
+                <p class="font-bold text-2xl" :style="{ color: getHighestColor.hex }">{{ getHighestColor.name }}</p>
+            </div>
+
+            <div class="text-center">
+                <button @click="restartQuiz" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                    Take the Quiz Again
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    const { createApp, ref, computed, onMounted, watch } = Vue;
+
+    createApp({
+        setup() {
+            // Data properties
+            const questions = ref([
+                {
+                    text: "What do you value most in a leader?",
+                    options: [
+                        { text: "Their ability to maintain order and structure.", scores: { white: 2, black: -1, red: -1, blue: 0, green: 0 } },
+                        { text: "Their cunning and ambition to seize power.", scores: { black: 2, white: -1, red: 1, blue: 1, green: -1 } },
+                        { text: "Their unwavering conviction and ability to inspire.", scores: { red: 2, white: 1, black: -1, blue: -1, green: 0 } },
+                        { text: "Their wisdom and understanding of the natural world.", scores: { green: 2, white: 0, black: -1, red: -1, blue: 0 } }
+                    ]
+                },
+                {
+                    text: "How do you approach a difficult problem?",
+                    options: [
+                        { text: "I analyze every detail and devise a flawless plan.", scores: { blue: 2, red: -2, green: -1, white: 0, black: 1 } },
+                        { text: "I follow my gut and act on instinct.", scores: { red: 2, blue: -2, white: -1, black: 0, green: 1 } },
+                        { text: "I seek consensus and a solution that benefits everyone.", scores: { white: 2, black: -2, red: -1, blue: 0, green: 0 } },
+                        { text: "I find the most efficient path to success, regardless of the cost.", scores: { black: 2, white: -2, blue: 1, red: 0, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is the greatest source of power?",
+                    options: [
+                        { text: "The unwavering will of the people, united for a cause.", scores: { white: 2, black: -1, red: 0, blue: 0, green: 1 } },
+                        { text: "Knowledge and control over the fundamental forces of the universe.", scores: { blue: 2, red: -1, black: 1, white: -1, green: 0 } },
+                        { text: "The pursuit of one's own desires and the strength to take what is needed.", scores: { black: 2, white: -2, blue: 1, red: 1, green: -1 } },
+                        { text: "Raw, primal emotion and the freedom to express it.", scores: { red: 2, blue: -2, white: -1, black: 0, green: 0 } }
+                    ]
+                },
+                {
+                    text: "Which of these concepts do you find most appealing?",
+                    options: [
+                        { text: "Destiny", scores: { green: 2, blue: -2, black: -1, red: 0, white: 1 } },
+                        { text: "Innovation", scores: { blue: 2, green: -1, red: 1, white: 0, black: 0 } },
+                        { text: "Authority", scores: { white: 2, red: -2, blue: 1, green: -1, black: 0 } },
+                        { text: "Self-sufficiency", scores: { black: 2, white: -1, blue: 0, green: 1, red: 0 } }
+                    ]
+                },
+                {
+                    text: "What is your stance on the balance of power?",
+                    options: [
+                        { text: "It should be carefully maintained to ensure stability.", scores: { blue: 1, white: 2, red: -2, black: -1, green: 0 } },
+                        { text: "It is an illusion; only the strong survive.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } },
+                        { text: "It is a natural force that should not be interfered with.", scores: { green: 2, blue: -1, red: 0, white: 1, black: 0 } },
+                        { text: "It should be shattered to allow for true freedom.", scores: { red: 2, white: -2, blue: -1, black: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is the purpose of law?",
+                    options: [
+                        { text: "To protect the weak and uphold justice for all.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 0 } },
+                        { text: "To be a tool for those in power.", scores: { black: 2, white: -2, blue: 1, red: 0, green: 0 } },
+                        { text: "To create order where there would otherwise be chaos.", scores: { blue: 1, white: 2, red: -2, black: -1, green: -1 } },
+                        { text: "A necessary evil to be endured or a restriction to be overcome.", scores: { red: 2, white: -2, black: 1, blue: -1, green: 0 } }
+                    ]
+                },
+                {
+                    text: "How do you feel about mistakes?",
+                    options: [
+                        { text: "They are learning opportunities to be analyzed and avoided.", scores: { blue: 2, red: -1, white: 1, black: 0, green: -1 } },
+                        { text: "They are a natural part of growth and should be embraced.", scores: { green: 2, red: 1, blue: -2, white: -1, black: 0 } },
+                        { text: "They are a sign of weakness to be overcome.", scores: { black: 2, red: -1, green: -1, white: 0, blue: 1 } },
+                        { text: "They are a source of chaos and should be eliminated.", scores: { white: 2, black: -1, red: -2, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What drives you most?",
+                    options: [
+                        { text: "Personal success and ambition.", scores: { black: 2, white: -2, blue: 1, red: 1, green: -1 } },
+                        { text: "The pursuit of knowledge and understanding.", scores: { blue: 2, red: -2, green: -1, white: 0, black: 1 } },
+                        { text: "The well-being of your community.", scores: { white: 2, black: -2, red: -1, blue: 0, green: 1 } },
+                        { text: "Following your passions and emotions.", scores: { red: 2, blue: -2, white: -1, black: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "Your favorite natural element is...",
+                    options: [
+                        { text: "Air or water, something that flows and can be controlled.", scores: { blue: 2, red: -1, green: 0, white: 0, black: 1 } },
+                        { text: "Earth or wood, something that is stable and grows.", scores: { green: 2, red: -1, blue: -1, white: 1, black: 0 } },
+                        { text: "Fire or lightning, something wild and destructive.", scores: { red: 2, white: -2, blue: -1, black: 1, green: 0 } },
+                        { text: "Shadow or darkness, something with great hidden power.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is the best way to deal with an opponent?",
+                    options: [
+                        { text: "Out-think them and predict their moves.", scores: { blue: 2, red: -1, black: 1, white: 0, green: 0 } },
+                        { text: "Overwhelm them with sheer force and passion.", scores: { red: 2, white: -1, blue: -2, black: 1, green: -1 } },
+                        { text: "Negotiate a truce that benefits your side.", scores: { white: 2, black: -1, red: 0, blue: 1, green: 1 } },
+                        { text: "Exploit their weaknesses for personal gain.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } }
+                    ]
+                },
+                // Added 40 more questions below for a total of 50
+                {
+                    text: "Which statement about society do you agree with most?",
+                    options: [
+                        { text: "Society should be a harmonious collective where everyone has a role.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 0 } },
+                        { text: "Society is a construct to be perfected through careful design.", scores: { blue: 2, red: -2, green: -1, white: 1, black: 1 } },
+                        { text: "Society is an artificial prison that restricts individual freedom.", scores: { red: 2, white: -2, blue: -1, black: 1, green: -1 } },
+                        { text: "Society is a feeding ground for the strong to thrive at the expense of the weak.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your primary motivation in life?",
+                    options: [
+                        { text: "To understand everything and achieve perfection.", scores: { blue: 2, red: -2, green: -1, white: 0, black: 1 } },
+                        { text: "To live in harmony with nature and accept the flow of life.", scores: { green: 2, blue: -1, red: -1, white: 1, black: -1 } },
+                        { text: "To gain control and influence over your destiny and others'.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } },
+                        { text: "To follow your heart and experience all that life has to offer.", scores: { red: 2, white: -1, blue: -2, black: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "How do you view tradition?",
+                    options: [
+                        { text: "As a guiding principle that provides stability.", scores: { white: 2, red: -2, blue: 0, black: -1, green: 1 } },
+                        { text: "As outdated and a barrier to progress.", scores: { blue: 2, green: -1, white: -1, black: 1, red: 1 } },
+                        { text: "As a chain that binds you to the past.", scores: { red: 2, white: -2, blue: -1, black: 1, green: 0 } },
+                        { text: "As a powerful tool to be used or discarded as needed.", scores: { black: 2, white: -1, blue: 1, red: 0, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is a healthy response to anger?",
+                    options: [
+                        { text: "To express it honestly and passionately.", scores: { red: 2, white: -1, blue: -2, black: 1, green: 0 } },
+                        { text: "To suppress it and maintain composure.", scores: { blue: 2, red: -2, white: 1, black: 0, green: -1 } },
+                        { text: "To channel it into productive, controlled action.", scores: { white: 1, blue: 1, red: -1, black: 1, green: -1 } },
+                        { text: "To use it as a tool to intimidate others.", scores: { black: 2, red: 1, white: -2, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your greatest fear?",
+                    options: [
+                        { text: "Losing control of yourself or your situation.", scores: { blue: 2, red: -2, green: -1, white: 1, black: 0 } },
+                        { text: "Becoming a slave to a system or to others.", scores: { red: 2, white: -2, blue: -1, black: 1, green: -1 } },
+                        { text: "The chaos of a world without rules or structure.", scores: { white: 2, black: -2, red: -2, blue: 1, green: -1 } },
+                        { text: "Dying without achieving your goals.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What does success mean to you?",
+                    options: [
+                        { text: "Achieving perfect understanding of a subject.", scores: { blue: 2, green: 0, white: 1, red: -1, black: 0 } },
+                        { text: "Living a life in harmony with your environment.", scores: { green: 2, red: -1, blue: 0, white: 1, black: -1 } },
+                        { text: "Having power and influence over others.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } },
+                        { text: "Being happy and free to do as you please.", scores: { red: 2, blue: -2, white: -1, black: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "When facing a group of people, you would rather be...",
+                    options: [
+                        { text: "The one who guides them and provides for their needs.", scores: { white: 2, black: -1, red: 0, blue: 1, green: 1 } },
+                        { text: "The one who inspires them to rebel and seek change.", scores: { red: 2, white: -2, blue: -1, black: 1, green: -1 } },
+                        { text: "The one who understands them better than they understand themselves.", scores: { blue: 2, red: -2, white: 1, black: 1, green: 0 } },
+                        { text: "The one who controls them from the shadows.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is the best way to handle change?",
+                    options: [
+                        { text: "By planning for it and controlling the outcome.", scores: { blue: 2, red: -2, green: -1, white: 1, black: 1 } },
+                        { text: "By accepting it as an inevitable part of life.", scores: { green: 2, blue: -1, red: 1, white: 1, black: -1 } },
+                        { text: "By embracing it fully and seeing where it leads.", scores: { red: 2, white: -2, blue: -1, black: 1, green: 1 } },
+                        { text: "By using it as an opportunity to gain an advantage.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "Which of these is most important for a society to function?",
+                    options: [
+                        { text: "A strong military to protect its borders.", scores: { white: 1, black: 1, red: -1, blue: 0, green: 0 } },
+                        { text: "A robust educational system.", scores: { blue: 2, white: 1, black: 0, red: -1, green: 0 } },
+                        { text: "Economic prosperity and free trade.", scores: { black: 1, red: 1, blue: 1, white: -1, green: -1 } },
+                        { text: "Respect for nature and the environment.", scores: { green: 2, white: 1, red: -1, blue: 0, black: -1 } }
+                    ]
+                },
+                {
+                    text: "What is the primary role of an individual?",
+                    options: [
+                        { text: "To contribute to the greater good of the community.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 1 } },
+                        { text: "To achieve personal greatness and self-realization.", scores: { black: 2, red: 1, blue: 1, white: -2, green: -1 } },
+                        { text: "To follow their own path and find happiness.", scores: { red: 2, green: 1, blue: -2, white: -1, black: 0 } },
+                        { text: "To seek wisdom and improve oneself.", scores: { blue: 2, white: 1, black: 0, red: -1, green: 0 } }
+                    ]
+                },
+                {
+                    text: "What is the key to a good life?",
+                    options: [
+                        { text: "A deep understanding of the world and yourself.", scores: { blue: 2, white: 1, red: -1, black: 0, green: 0 } },
+                        { text: "Living in balance with your surroundings.", scores: { green: 2, white: 1, blue: -1, red: -1, black: -1 } },
+                        { text: "Having the freedom to pursue your desires.", scores: { red: 2, blue: -2, black: 1, white: -1, green: -1 } },
+                        { text: "Being in control of your own fate.", scores: { black: 2, blue: 1, white: -2, red: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "Which is the most valuable resource?",
+                    options: [
+                        { text: "Information.", scores: { blue: 2, white: -1, black: 1, red: 0, green: -1 } },
+                        { text: "Natural resources.", scores: { green: 2, blue: -1, red: -1, white: 1, black: -1 } },
+                        { text: "Your own will and determination.", scores: { black: 2, red: 1, white: -1, blue: 1, green: -1 } },
+                        { text: "Unity and cooperation.", scores: { white: 2, red: -2, black: -1, blue: 1, green: 0 } }
+                    ]
+                },
+                {
+                    text: "How would you solve a conflict?",
+                    options: [
+                        { text: "Through a fair and impartial process.", scores: { white: 2, black: -1, red: -1, blue: 1, green: 0 } },
+                        { text: "By using clever manipulation to get your way.", scores: { black: 2, blue: 1, white: -2, red: 1, green: -1 } },
+                        { text: "With a passionate argument or a show of force.", scores: { red: 2, blue: -2, white: -1, black: 1, green: -1 } },
+                        { text: "By understanding the root cause and letting nature take its course.", scores: { green: 2, red: 0, blue: 1, white: 1, black: -1 } }
+                    ]
+                },
+                {
+                    text: "What does equality mean to you?",
+                    options: [
+                        { text: "Everyone is a part of the same whole.", scores: { white: 2, black: -2, red: -1, blue: 0, green: 1 } },
+                        { text: "It is an impossible ideal.", scores: { black: 2, red: 1, white: -2, blue: 1, green: 0 } },
+                        { text: "It is a fundamental human right.", scores: { white: 1, red: 1, blue: 1, green: 1, black: -2 } },
+                        { text: "It is a concept best applied to the natural world.", scores: { green: 2, red: 0, blue: -1, white: 1, black: -1 } }
+                    ]
+                },
+                {
+                    text: "What is the best way to gain respect?",
+                    options: [
+                        { text: "Through authority and position.", scores: { white: 2, red: -1, blue: 1, black: 1, green: -1 } },
+                        { text: "By demonstrating your power and competence.", scores: { black: 2, white: -2, blue: 1, red: 1, green: -1 } },
+                        { text: "Through your wisdom and experience.", scores: { green: 2, blue: 1, white: 1, red: -1, black: -1 } },
+                        { text: "By being yourself, flaws and all.", scores: { red: 2, blue: -2, white: -1, black: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your opinion of change?",
+                    options: [
+                        { text: "It is a force to be resisted and controlled.", scores: { white: 2, red: -2, blue: 1, black: 0, green: -1 } },
+                        { text: "It is inevitable, and one must adapt.", scores: { green: 2, white: 0, red: 1, blue: 0, black: 1 } },
+                        { text: "It is exciting and full of new possibilities.", scores: { red: 2, blue: -1, green: -1, white: -1, black: 1 } },
+                        { text: "It is a chance to reshape the world to your liking.", scores: { blue: 2, black: 2, red: 1, white: -2, green: -2 } }
+                    ]
+                },
+                {
+                    text: "What is the best way to learn?",
+                    options: [
+                        { text: "Through careful study and methodical analysis.", scores: { blue: 2, red: -2, green: 0, white: 1, black: 1 } },
+                        { text: "By experiencing things firsthand.", scores: { red: 2, blue: -2, green: 1, white: -1, black: 1 } },
+                        { text: "By listening to the wisdom of elders and the past.", scores: { white: 2, green: 2, red: -2, black: -1, blue: -1 } },
+                        { text: "By experimenting and taking risks.", scores: { black: 2, red: 1, blue: 1, white: -2, green: -1 } }
+                    ]
+                },
+                {
+                    text: "How do you feel about death?",
+                    options: [
+                        { text: "It is a natural and necessary part of the cycle of life.", scores: { green: 2, white: -1, blue: -1, red: 0, black: 1 } },
+                        { text: "It is the ultimate tool to be used for power.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } },
+                        { text: "It is a tragic end that should be avoided at all costs.", scores: { white: 2, blue: 1, black: -2, red: -1, green: -1 } },
+                        { text: "It is something to be fought against with all your might.", scores: { red: 1, blue: 2, white: -1, black: -1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your ideal community?",
+                    options: [
+                        { text: "One where everyone contributes to the common good.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 1 } },
+                        { text: "One where the most intelligent are in charge.", scores: { blue: 2, red: -1, white: 1, black: 1, green: -1 } },
+                        { text: "One where everyone is free to pursue their own interests.", scores: { red: 2, white: -1, blue: -2, black: 1, green: 1 } },
+                        { text: "One where the strong rule over the weak.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is the purpose of art?",
+                    options: [
+                        { text: "To express the full range of human emotion.", scores: { red: 2, white: -1, blue: -1, black: 1, green: 0 } },
+                        { text: "To create something beautiful and harmonious.", scores: { white: 2, red: 0, black: -1, blue: 1, green: 0 } },
+                        { text: "To represent the truth of the world and the human condition.", scores: { blue: 2, red: 0, white: 0, black: 1, green: 1 } },
+                        { text: "To express the raw, untamed force of nature.", scores: { green: 2, red: 1, blue: -1, white: -1, black: 0 } }
+                    ]
+                },
+                {
+                    text: "When you are in a debate, you are most likely to...",
+                    options: [
+                        { text: "Use logic and facts to prove your point.", scores: { blue: 2, red: -2, white: 1, black: 1, green: -1 } },
+                        { text: "Appeal to the audience's emotions.", scores: { red: 2, blue: -1, white: -1, black: 1, green: 0 } },
+                        { text: "Seek a compromise that satisfies all parties.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 1 } },
+                        { text: "Exploit your opponent's weaknesses to win.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "How do you feel about ambition?",
+                    options: [
+                        { text: "It is a noble quality that drives progress.", scores: { black: 2, blue: 1, red: 1, white: -1, green: -1 } },
+                        { text: "It is a selfish desire that can lead to conflict.", scores: { white: 2, black: -2, red: -1, blue: 0, green: 1 } },
+                        { text: "It is a natural impulse to be expressed freely.", scores: { red: 2, blue: -1, white: -1, black: 1, green: 1 } },
+                        { text: "It is a sign of a lack of contentment.", scores: { green: 2, black: -1, red: -1, blue: -1, white: 1 } }
+                    ]
+                },
+                {
+                    text: "Which of these concepts is most important to you?",
+                    options: [
+                        { text: "Unity", scores: { white: 2, black: -2, red: -1, blue: 1, green: 1 } },
+                        { text: "Truth", scores: { blue: 2, white: 1, black: 1, red: -1, green: 0 } },
+                        { text: "Instinct", scores: { red: 2, green: 2, blue: -2, white: -2, black: 0 } },
+                        { text: "Survival", scores: { black: 2, white: -2, red: 1, blue: 1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "What is your first instinct in a crisis?",
+                    options: [
+                        { text: "To gather information and assess the situation.", scores: { blue: 2, red: -2, white: 1, black: 1, green: 0 } },
+                        { text: "To act immediately and decisively.", scores: { red: 2, blue: -2, white: -1, black: 1, green: -1 } },
+                        { text: "To organize a group effort to overcome it.", scores: { white: 2, black: -1, red: -1, blue: 1, green: 1 } },
+                        { text: "To find a way to personally benefit from it.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your view on destiny?",
+                    options: [
+                        { text: "Destiny is real, and it is our place to find it.", scores: { green: 2, blue: -2, red: -1, white: 1, black: -1 } },
+                        { text: "There is no such thing as destiny, only choices.", scores: { blue: 2, red: 1, black: 1, white: -1, green: -2 } },
+                        { text: "You make your own destiny through force of will.", scores: { black: 2, red: 1, blue: 1, white: -1, green: -1 } },
+                        { text: "It is a concept that restricts freedom.", scores: { red: 2, blue: -2, black: 1, white: -1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What do you think is the best way to live?",
+                    options: [
+                        { text: "By following the rules and respecting authority.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 0 } },
+                        { text: "By challenging the status quo and forging a new path.", scores: { red: 2, blue: 1, white: -2, black: 1, green: -1 } },
+                        { text: "By gaining knowledge and improving yourself.", scores: { blue: 2, white: 1, red: -1, black: 1, green: 0 } },
+                        { text: "By being self-sufficient and independent.", scores: { green: 1, black: 2, white: -1, red: 1, blue: 1 } }
+                    ]
+                },
+                {
+                    text: "What is the purpose of science?",
+                    options: [
+                        { text: "To understand and control the world around us.", scores: { blue: 2, green: -1, white: 1, red: -1, black: 1 } },
+                        { text: "To create a better and more orderly society.", scores: { white: 2, blue: 1, black: -1, red: -1, green: 0 } },
+                        { text: "To gain an advantage over others.", scores: { black: 2, blue: 1, red: 1, white: -2, green: -1 } },
+                        { text: "To learn how we fit into the natural world.", scores: { green: 2, white: 1, blue: 0, red: -1, black: -1 } }
+                    ]
+                },
+                {
+                    text: "How do you feel about your past?",
+                    options: [
+                        { text: "I learn from it, but I don't let it define me.", scores: { blue: 2, black: 1, red: 1, white: 0, green: -1 } },
+                        { text: "I am who I am because of it, and I embrace it.", scores: { red: 2, green: 1, white: 1, blue: -1, black: -1 } },
+                        { text: "It's a collection of lessons to be applied to the future.", scores: { white: 1, blue: 2, black: 1, red: -1, green: 0 } },
+                        { text: "It is a source of regrets and things I should have done differently.", scores: { black: 2, white: -1, blue: 1, red: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your main goal in life?",
+                    options: [
+                        { text: "To achieve a state of inner peace and enlightenment.", scores: { green: 2, white: 1, blue: 0, red: -1, black: -1 } },
+                        { text: "To become the best at what I do.", scores: { blue: 2, black: 1, red: 1, white: 0, green: -1 } },
+                        { text: "To help others and create a better world.", scores: { white: 2, green: 1, blue: 1, red: -1, black: -2 } },
+                        { text: "To get everything I desire.", scores: { black: 2, red: 2, white: -2, blue: 0, green: -1 } }
+                    ]
+                },
+                {
+                    text: "Which concept is more important: 'might makes right' or 'justice prevails'?",
+                    options: [
+                        { text: "'Justice prevails'.", scores: { white: 2, blue: 1, red: -1, black: -2, green: 0 } },
+                        { text: "'Might makes right'.", scores: { black: 2, red: 1, white: -2, blue: 1, green: -1 } },
+                        { text: "Neither, the answer lies in understanding.", scores: { blue: 2, green: 2, white: 1, red: -1, black: -1 } },
+                        { text: "Neither, the answer lies in freedom.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 0 } }
+                    ]
+                },
+                {
+                    text: "How do you respond to a betrayal?",
+                    options: [
+                        { text: "By seeking revenge and making them pay.", scores: { black: 2, red: 2, white: -2, blue: -1, green: -1 } },
+                        { text: "By cutting them out of your life and moving on.", scores: { blue: 1, red: 1, black: 1, white: -1, green: -1 } },
+                        { text: "By forgiving them, but never forgetting the lesson.", scores: { white: 2, blue: 1, green: 1, red: -1, black: -1 } },
+                        { text: "By letting your emotions out in an explosive manner.", scores: { red: 2, black: 1, white: -1, blue: -2, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your view on the environment?",
+                    options: [
+                        { text: "It is a resource to be used and managed.", scores: { black: 1, blue: 1, white: 1, red: 0, green: -2 } },
+                        { text: "It is a living entity to be respected and protected.", scores: { green: 2, white: 1, blue: -1, red: -1, black: -2 } },
+                        { text: "It is a beautiful and wild place that should not be controlled.", scores: { red: 1, green: 2, blue: -1, white: 0, black: -1 } },
+                        { text: "It is a backdrop for humanity to build and create upon.", scores: { white: 1, blue: 2, black: 1, red: -1, green: -2 } }
+                    ]
+                },
+                {
+                    text: "How do you feel about suffering?",
+                    options: [
+                        { text: "It is a necessary part of growth.", scores: { green: 1, black: 1, red: 1, white: -1, blue: -1 } },
+                        { text: "It is a challenge to be overcome with logic and willpower.", scores: { blue: 2, white: 1, black: 0, red: -1, green: -1 } },
+                        { text: "It is an obstacle to be avoided by any means necessary.", scores: { black: 2, red: 1, white: -2, blue: 0, green: -1 } },
+                        { text: "It is an unfortunate but unavoidable part of life.", scores: { white: 2, green: 1, blue: 0, red: -1, black: -1 } }
+                    ]
+                },
+                {
+                    text: "Which of these words best describes you?",
+                    options: [
+                        { text: "Disciplined", scores: { white: 2, blue: 1, black: 1, red: -2, green: -1 } },
+                        { text: "Innovative", scores: { blue: 2, red: 1, black: 1, white: -1, green: -1 } },
+                        { text: "Spontaneous", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } },
+                        { text: "Resourceful", scores: { black: 2, blue: 1, red: 1, white: -1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "What is your opinion of compromise?",
+                    options: [
+                        { text: "It is the best way to ensure harmony.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 1 } },
+                        { text: "It is a sign of weakness.", scores: { black: 2, red: 1, white: -2, blue: -1, green: -1 } },
+                        { text: "It is a necessary evil.", scores: { blue: 1, white: 0, red: 0, black: 1, green: 1 } },
+                        { text: "It is a way to avoid conflict, which is sometimes necessary.", scores: { red: 1, white: 1, blue: 1, black: 1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "How do you make a decision?",
+                    options: [
+                        { text: "Based on logic and cold reason.", scores: { blue: 2, red: -2, white: 1, black: 1, green: -1 } },
+                        { text: "Based on what feels right in the moment.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } },
+                        { text: "Based on what is best for the group.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 1 } },
+                        { text: "Based on what will give you the most personal advantage.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your ideal legacy?",
+                    options: [
+                        { text: "To be remembered as a wise and peaceful leader.", scores: { white: 2, blue: 1, green: 1, red: -1, black: -2 } },
+                        { text: "To be remembered as a genius who changed the world.", scores: { blue: 2, white: 1, black: 1, red: 0, green: -1 } },
+                        { text: "To be remembered for the power you wielded and the impact you made.", scores: { black: 2, red: 1, white: -2, blue: 1, green: -1 } },
+                        { text: "To be remembered for the passion and freedom you lived with.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "What does freedom mean to you?",
+                    options: [
+                        { text: "The ability to pursue knowledge without limits.", scores: { blue: 2, red: 1, white: -1, black: 1, green: -1 } },
+                        { text: "The ability to live your life exactly as you wish.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } },
+                        { text: "The ability to live in a secure and protected community.", scores: { white: 2, red: -2, black: -1, blue: 1, green: 0 } },
+                        { text: "The ability to live without fear of others.", scores: { green: 2, white: 1, blue: 0, red: -1, black: 1 } }
+                    ]
+                },
+                {
+                    text: "How do you view nature?",
+                    options: [
+                        { text: "As a perfect system that should be respected.", scores: { green: 2, blue: -1, red: -1, white: 1, black: -1 } },
+                        { text: "As a chaotic force that must be tamed.", scores: { white: 2, blue: 1, black: 1, red: -2, green: -2 } },
+                        { text: "As a playground for exploration and expression.", scores: { red: 2, blue: -1, white: -1, black: 0, green: 1 } },
+                        { text: "As a resource to be exploited for your own gain.", scores: { black: 2, green: -2, white: -1, red: 1, blue: 1 } }
+                    ]
+                },
+                {
+                    text: "Which statement about control do you agree with most?",
+                    options: [
+                        { text: "Control is a necessary evil to maintain order.", scores: { white: 1, blue: 1, black: 1, red: -2, green: -1 } },
+                        { text: "Control is an illusion; the world is too chaotic.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } },
+                        { text: "Control is the key to personal power and success.", scores: { black: 2, blue: 2, white: -2, red: -1, green: -1 } },
+                        { text: "Control is about understanding, not force.", scores: { blue: 2, white: 1, black: 0, red: -1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "What is your reaction to a new idea?",
+                    options: [
+                        { text: "I analyze it to see how it can be improved.", scores: { blue: 2, red: 1, black: 1, white: 0, green: 0 } },
+                        { text: "I am excited by the potential for change.", scores: { red: 2, blue: 1, black: 1, white: -1, green: -1 } },
+                        { text: "I evaluate it based on its potential to benefit the community.", scores: { white: 2, blue: 1, red: -1, black: -1, green: 0 } },
+                        { text: "I consider how it can be used to gain an advantage.", scores: { black: 2, red: 1, blue: 1, white: -1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "How do you feel about death?",
+                    options: [
+                        { text: "It is the final, ultimate end.", scores: { black: 1, blue: 1, red: 1, white: -1, green: -1 } },
+                        { text: "It is a peaceful return to the natural order.", scores: { green: 2, white: 1, blue: 0, red: -1, black: -1 } },
+                        { text: "It is a consequence of a flawed existence.", scores: { white: 1, blue: 2, black: 1, red: 0, green: -1 } },
+                        { text: "It is an outrage to be fought at every turn.", scores: { red: 2, black: 1, blue: 1, white: -2, green: -2 } }
+                    ]
+                },
+                {
+                    text: "What is the primary function of a leader?",
+                    options: [
+                        { text: "To provide a clear vision for the future.", scores: { blue: 2, white: 1, red: 1, black: 1, green: -1 } },
+                        { text: "To inspire their followers with passion and emotion.", scores: { red: 2, white: 1, blue: -2, black: 1, green: 0 } },
+                        { text: "To maintain justice and protect their people.", scores: { white: 2, blue: 1, black: -1, red: -1, green: 1 } },
+                        { text: "To lead by example and show the strength of nature.", scores: { green: 2, red: 1, white: 1, blue: -1, black: 0 } }
+                    ]
+                },
+                {
+                    text: "What is your greatest asset?",
+                    options: [
+                        { text: "My intelligence and strategic mind.", scores: { blue: 2, red: -1, black: 1, white: 0, green: -1 } },
+                        { text: "My empathy and sense of duty.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 1 } },
+                        { text: "My power and ruthless ambition.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } },
+                        { text: "My emotional strength and freedom.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "What is the biggest problem in the world?",
+                    options: [
+                        { text: "Lack of understanding and wisdom.", scores: { blue: 2, red: -2, white: 1, black: 0, green: 0 } },
+                        { text: "Selfishness and greed.", scores: { black: 2, red: 1, white: -2, blue: 1, green: -1 } },
+                        { text: "Lack of community and unity.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 1 } },
+                        { text: "Emotional suppression and a lack of freedom.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "How do you deal with your emotions?",
+                    options: [
+                        { text: "I try to understand them logically.", scores: { blue: 2, red: -2, white: 1, black: 0, green: 0 } },
+                        { text: "I let them flow freely.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } },
+                        { text: "I keep them in check to maintain control.", scores: { white: 2, black: 1, blue: 1, red: -2, green: -1 } },
+                        { text: "I use them to fuel my actions.", scores: { black: 2, red: 1, blue: 1, white: -1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your view on the future?",
+                    options: [
+                        { text: "It is a blank canvas to be shaped by those with the will to do so.", scores: { blue: 2, black: 2, red: 1, white: -1, green: -1 } },
+                        { text: "It is a natural progression of the present.", scores: { green: 2, white: 1, blue: 0, red: -1, black: 0 } },
+                        { text: "It is a terrifying uncertainty that must be controlled.", scores: { white: 2, blue: 1, red: -2, black: -1, green: -1 } },
+                        { text: "It is a place of endless possibility and excitement.", scores: { red: 2, blue: 1, white: -1, black: 1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "What is the goal of conflict?",
+                    options: [
+                        { text: "To win by any means necessary.", scores: { black: 2, red: 1, blue: 1, white: -2, green: -1 } },
+                        { text: "To achieve a lasting peace.", scores: { white: 2, blue: 1, green: 1, red: -1, black: -2 } },
+                        { text: "To show your strength and passion.", scores: { red: 2, black: 1, white: -1, blue: -1, green: 0 } },
+                        { text: "To learn from your opponents.", scores: { blue: 2, red: -1, white: 1, black: 0, green: 1 } }
+                    ]
+                },
+                {
+                    text: "What is your opinion of laws?",
+                    options: [
+                        { text: "They are essential for a civilized society.", scores: { white: 2, black: -2, red: -1, blue: 1, green: -1 } },
+                        { text: "They are a tool for the powerful to control others.", scores: { black: 2, red: 1, white: -2, blue: 1, green: -1 } },
+                        { text: "They are a necessary framework for stability.", scores: { blue: 2, white: 1, black: 0, red: -1, green: -1 } },
+                        { text: "They are meant to be broken by those who desire freedom.", scores: { red: 2, white: -2, black: 1, blue: -1, green: 0 } }
+                    ]
+                },
+                {
+                    text: "How do you feel about authority?",
+                    options: [
+                        { text: "I respect and trust it.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 0 } },
+                        { text: "I question and challenge it.", scores: { blue: 2, red: 1, white: -1, black: 1, green: -1 } },
+                        { text: "I see it as a stepping stone to personal power.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } },
+                        { text: "I instinctively dislike all forms of authority.", scores: { red: 2, white: -2, blue: -1, black: 1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "What is your stance on technology?",
+                    options: [
+                        { text: "It is a tool to improve life and create convenience.", scores: { white: 1, blue: 2, red: -1, black: 1, green: -2 } },
+                        { text: "It is an unnatural corruption of the world.", scores: { green: 2, red: 1, white: 1, black: -1, blue: -2 } },
+                        { text: "It is a means to achieve ultimate power and control.", scores: { black: 2, blue: 2, white: -2, red: 0, green: -2 } },
+                        { text: "It is exciting and full of potential for chaos.", scores: { red: 2, blue: 1, black: 1, white: -1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your relationship with your past?",
+                    options: [
+                        { text: "It is a foundation upon which I build my future.", scores: { white: 2, blue: 1, green: 1, red: -1, black: -1 } },
+                        { text: "I analyze it for data and patterns to avoid past mistakes.", scores: { blue: 2, white: 1, black: 1, red: -1, green: 0 } },
+                        { text: "I use my past mistakes as motivation for future gains.", scores: { black: 2, red: 1, blue: 1, white: -2, green: -1 } },
+                        { text: "It is something I feel no need to dwell on.", scores: { red: 2, green: 1, blue: -1, white: -1, black: 1 } }
+                    ]
+                },
+                {
+                    text: "What is the most important part of a community?",
+                    options: [
+                        { text: "The sense of security and belonging.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 1 } },
+                        { text: "The opportunities for growth and knowledge.", scores: { blue: 2, white: 1, black: 1, red: -1, green: 0 } },
+                        { text: "The ability to pursue personal success.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } },
+                        { text: "The ability to be yourself without judgment.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "What do you think is the key to happiness?",
+                    options: [
+                        { text: "Finding your place in the natural order of things.", scores: { green: 2, white: 1, blue: 0, red: -1, black: -1 } },
+                        { text: "Understanding yourself and the world around you.", scores: { blue: 2, white: 1, red: -1, black: 1, green: 0 } },
+                        { text: "Having the freedom to live without restriction.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } },
+                        { text: "Having control over your own life.", scores: { black: 2, blue: 1, white: -1, red: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "How do you handle a moral dilemma?",
+                    options: [
+                        { text: "I consult the rules and principles I believe in.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 0 } },
+                        { text: "I use logic to find the most rational outcome.", scores: { blue: 2, white: 1, black: 1, red: -1, green: 0 } },
+                        { text: "I do what feels right in my heart.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } },
+                        { text: "I choose the option that benefits me most.", scores: { black: 2, red: 1, white: -2, blue: 1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your opinion on competition?",
+                    options: [
+                        { text: "It is a healthy and natural way to determine worth.", scores: { black: 2, red: 1, blue: 1, white: -1, green: -1 } },
+                        { text: "It is an unnecessary cause of conflict.", scores: { white: 2, green: 1, blue: 1, red: -2, black: -2 } },
+                        { text: "It is a way to push yourself to your limits.", scores: { red: 2, blue: 1, black: 1, white: -1, green: 0 } },
+                        { text: "It is a struggle for survival.", scores: { green: 1, black: 2, white: -1, red: 0, blue: 0 } }
+                    ]
+                },
+                {
+                    text: "How do you feel about self-control?",
+                    options: [
+                        { text: "It is a sign of maturity and wisdom.", scores: { blue: 2, white: 2, red: -2, black: 1, green: 0 } },
+                        { text: "It is a chain that suppresses your true self.", scores: { red: 2, blue: -2, white: -2, black: 1, green: 1 } },
+                        { text: "It is a tool to be used when necessary.", scores: { black: 2, blue: 1, red: 1, white: -1, green: -1 } },
+                        { text: "It is about finding balance, not total suppression.", scores: { green: 2, white: 1, blue: 1, red: -1, black: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your primary goal when you meet someone new?",
+                    options: [
+                        { text: "To understand their thoughts and motivations.", scores: { blue: 2, white: 1, red: 0, black: 1, green: 0 } },
+                        { text: "To find a common interest and form a bond.", scores: { white: 2, green: 1, red: 1, blue: 0, black: -1 } },
+                        { text: "To see if they can be useful to you.", scores: { black: 2, blue: 1, red: 1, white: -2, green: -1 } },
+                        { text: "To see if you get along on an emotional level.", scores: { red: 2, white: -1, blue: -1, black: 1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "Which of these concepts is most appealing?",
+                    options: [
+                        { text: "Logic", scores: { blue: 2, red: -2, white: 1, black: 1, green: -1 } },
+                        { text: "Harmony", scores: { white: 2, black: -2, red: -1, blue: 1, green: 1 } },
+                        { text: "Evolution", scores: { green: 2, red: 1, blue: 1, white: 0, black: 1 } },
+                        { text: "Individualism", scores: { red: 2, black: 2, white: -2, blue: -1, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your relationship with emotion?",
+                    options: [
+                        { text: "It is a beautiful and wild force that guides me.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } },
+                        { text: "I try to understand and control it.", scores: { blue: 2, red: -2, white: 1, black: 1, green: -1 } },
+                        { text: "It is a source of weakness if not checked.", scores: { white: 2, black: 1, blue: 1, red: -2, green: -1 } },
+                        { text: "It is a tool to be used to my advantage.", scores: { black: 2, red: 1, blue: 1, white: -2, green: -1 } }
+                    ]
+                },
+                {
+                    text: "What is your main priority?",
+                    options: [
+                        { text: "To live a life of peace and order.", scores: { white: 2, black: -2, red: -1, blue: 1, green: 1 } },
+                        { text: "To gain knowledge and master my craft.", scores: { blue: 2, white: 1, red: -1, black: 1, green: 0 } },
+                        { text: "To achieve my goals and desires.", scores: { black: 2, red: 1, white: -2, blue: 1, green: -1 } },
+                        { text: "To live freely and without restraint.", scores: { red: 2, blue: -2, white: -1, black: 1, green: 1 } }
+                    ]
+                },
+                {
+                    text: "Which of these is the greatest virtue?",
+                    options: [
+                        { text: "Patience", scores: { green: 2, white: 1, blue: 1, red: -1, black: -1 } },
+                        { text: "Intelligence", scores: { blue: 2, white: 1, black: 1, red: -1, green: -1 } },
+                        { text: "Charity", scores: { white: 2, green: 1, blue: 1, red: -1, black: -2 } },
+                        { text: "Ambition", scores: { black: 2, red: 1, blue: 1, white: -2, green: -1 } }
+                    ]
+                },
+                {
+                    text: "How do you feel about rules?",
+                    options: [
+                        { text: "They are a necessary evil that restricts our freedom.", scores: { red: 2, blue: -1, white: -1, black: 1, green: 0 } },
+                        { text: "They are a guide to a better, more just life.", scores: { white: 2, blue: 1, green: 1, red: -2, black: -1 } },
+                        { text: "They are a tool to be used or ignored as needed.", scores: { black: 2, blue: 1, red: 1, white: -2, green: -1 } },
+                        { text: "They are a framework for understanding the world.", scores: { blue: 2, white: 1, red: -1, black: 0, green: 0 } }
+                    ]
+                }
+            ]);
+
+            const totalScores = ref({
+                white: 0,
+                blue: 0,
+                black: 0,
+                red: 0,
+                green: 0
+            });
+
+            const currentQuestionIndex = ref(0);
+            const quizCompleted = ref(false);
+            let chartInstance = null;
+
+            // Computed properties
+            const currentQuestion = computed(() => {
+                return questions.value[currentQuestionIndex.value];
+            });
+
+            const quizProgress = computed(() => {
+                return (currentQuestionIndex.value / questions.value.length) * 100;
+            });
+
+            const mtgColors = [
+                { name: 'White', hex: '#F8F1D0' },
+                { name: 'Blue', hex: '#63A5E5' },
+                { name: 'Black', hex: '#6C6568' },
+                { name: 'Red', hex: '#E74C3C' },
+                { name: 'Green', hex: '#68B35C' }
+            ];
+
+            const getHighestColor = computed(() => {
+                const scores = totalScores.value;
+                let highestScore = -Infinity;
+                let highestColor = null;
+
+                for (const color of mtgColors) {
+                    const score = scores[color.name.toLowerCase()];
+                    if (score > highestScore) {
+                        highestScore = score;
+                        highestColor = color;
+                    }
+                }
+                return highestColor;
+            });
+
+            // Methods
+            const answerQuestion = (scores) => {
+                // Accumulate scores
+                for (const color in scores) {
+                    totalScores.value[color] += scores[color];
+                }
+
+                // Move to the next question
+                currentQuestionIndex.value++;
+
+                // Check if the quiz is complete
+                if (currentQuestionIndex.value >= questions.value.length) {
+                    quizCompleted.value = true;
+                }
+            };
+
+            const renderChart = () => {
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+
+                const ctx = document.getElementById('mtgChart').getContext('2d');
+                const data = {
+                    labels: mtgColors.map(c => c.name),
+                    datasets: [{
+                        label: 'Your Color Identity',
+                        data: mtgColors.map(c => totalScores.value[c.name.toLowerCase()]),
+                        fill: true,
+                        backgroundColor: 'rgba(99, 102, 241, 0.4)',
+                        borderColor: 'rgb(99, 102, 241)',
+                        pointBackgroundColor: 'rgb(99, 102, 241)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(99, 102, 241)'
+                    }]
+                };
+
+                const config = {
+                    type: 'radar',
+                    data: data,
+                    options: {
+                        elements: {
+                            line: {
+                                borderWidth: 3
+                            }
+                        },
+                        scales: {
+                            r: {
+                                angleLines: {
+                                    display: true,
+                                    color: '#e5e7eb'
+                                },
+                                grid: {
+                                    color: '#d1d5db'
+                                },
+                                pointLabels: {
+                                    font: {
+                                        size: 14,
+                                        weight: 'bold'
+                                    },
+                                    color: '#1f2937'
+                                },
+                                suggestdMin: 0, // Dynamic min and max
+                                suggestedMax: 100,
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        return `${context.dataset.label}: ${context.raw}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+                chartInstance = new Chart(ctx, config);
+            };
+
+            const restartQuiz = () => {
+                currentQuestionIndex.value = 0;
+                quizCompleted.value = false;
+                totalScores.value = { white: 0, blue: 0, black: 0, red: 0, green: 0 };
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+            };
+
+            // Watcher for quiz completion
+            watch(quizCompleted, (isCompleted) => {
+                if (isCompleted) {
+                    // Give Vue time to render the canvas element before drawing the chart
+                    setTimeout(() => {
+                        renderChart();
+                    }, 50);
+                }
+            });
+
+            return {
+                questions,
+                currentQuestionIndex,
+                quizCompleted,
+                totalScores,
+                quizProgress,
+                currentQuestion,
+                answerQuestion,
+                restartQuiz,
+                getHighestColor
+            };
+        }
+    }).mount('#app');
+</script>
+
+</body>
+</html>
