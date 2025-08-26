@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MTG Color Quiz</title>
-    <!-- Use Tailwind CSS for a clean, modern look -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Use Chart.js for the radar graph -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Use Vue 3 from a CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -23,7 +20,6 @@
 
 <div id="app" class="flex items-center justify-center min-h-screen p-4">
     <div class="bg-white shadow-xl rounded-xl p-8 w-full max-w-2xl">
-        <!-- Quiz Section -->
         <div v-if="!quizCompleted">
             <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Your MTG Color Identity</h1>
             <div class="mb-4">
@@ -50,7 +46,6 @@
             </div>
         </div>
 
-        <!-- Results Section -->
         <div v-else>
             <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Your Results</h1>
             <div class="flex justify-center mb-8">
@@ -76,7 +71,6 @@
 
     createApp({
         setup() {
-            // Data properties
             const questions = ref([
                 {
                     text: "What do you value most in a leader?",
@@ -168,7 +162,6 @@
                         { text: "Exploit their weaknesses for personal gain.", scores: { black: 2, white: -2, red: 1, blue: 1, green: -1 } }
                     ]
                 },
-                // Added 40 more questions below for a total of 50
                 {
                     text: "Which statement about society do you agree with most?",
                     options: [
@@ -422,7 +415,7 @@
                     ]
                 },
                 {
-                    text: "What is your main goal in life?",
+                    text: "What is my main goal in life?",
                     options: [
                         { text: "To achieve a state of inner peace and enlightenment.", scores: { green: 2, white: 1, blue: 0, red: -1, black: -1 } },
                         { text: "To become the best at what I do.", scores: { blue: 2, black: 1, red: 1, white: 0, green: -1 } },
@@ -750,7 +743,6 @@
             const quizCompleted = ref(false);
             let chartInstance = null;
 
-            // Computed properties
             const currentQuestion = computed(() => {
                 return questions.value[currentQuestionIndex.value];
             });
@@ -782,17 +774,13 @@
                 return highestColor;
             });
 
-            // Methods
             const answerQuestion = (scores) => {
-                // Accumulate scores
                 for (const color in scores) {
                     totalScores.value[color] += scores[color];
                 }
 
-                // Move to the next question
                 currentQuestionIndex.value++;
 
-                // Check if the quiz is complete
                 if (currentQuestionIndex.value >= questions.value.length) {
                     quizCompleted.value = true;
                 }
@@ -844,7 +832,7 @@
                                     },
                                     color: '#1f2937'
                                 },
-                                suggestdMin: 0, // Dynamic min and max
+                                suggestdMin: 0,
                                 suggestedMax: 100,
                             }
                         },
@@ -874,10 +862,8 @@
                 }
             };
 
-            // Watcher for quiz completion
             watch(quizCompleted, (isCompleted) => {
                 if (isCompleted) {
-                    // Give Vue time to render the canvas element before drawing the chart
                     setTimeout(() => {
                         renderChart();
                     }, 50);
