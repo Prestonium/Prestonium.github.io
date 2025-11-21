@@ -3,993 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YAML Dependency Visualizer</title>
-    <!-- Tailwind CSS for styling -->
+    <meta name="author" content="Preston, the oldest">
+    <title>McInelly Christmas Chart Generator</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Inter font -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap">
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-red: #B91C1C;
+            --primary-green: #059669;
+        }
         body {
             font-family: 'Inter', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            background-color: #1f2937; /* Dark background */
-            color: #e5e7eb; /* Light text */
-            margin: 0;
-            padding: 0;
-            position: relative; /* Container for the absolute header */
-            padding-top: 15rem; /* Pushes content down so it's not hidden by the header */
+            background-color: #f7f7f7;
         }
-        #header-container {
-            background-color: rgba(55, 65, 81, 0.8); /* Semi-transparent background */
-            position: absolute; /* Overlaps the canvas */
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 10; /* Ensures it sits on top */
-            backdrop-filter: blur(8px); /* Optional: Adds a blur effect for a more modern look */
+        /* Custom scrollbar for better aesthetics */
+        .chart-container::-webkit-scrollbar {
+            width: 8px;
         }
-        svg {
-            display: block;
-            background-color: #374151;
-            /* Removed border-radius and box-shadow for a full-screen feel */
-            touch-action: none;
+        .chart-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
         }
-        .node-circle {
-            stroke: #374151; /* Matches container background */
-            stroke-width: 2px;
-            cursor: pointer;
-            transition: stroke 0.2s ease-in-out;
+        .chart-container::-webkit-scrollbar-thumb {
+            background: var(--primary-green);
+            border-radius: 4px;
         }
-        .node-circle.active {
-            stroke: #60a5fa; /* Lighter blue for active state */
-            stroke-width: 6px;
-        }
-        /* Style for a standard dependency link (client to API or API to client) */
-        .link {
-            stroke: #22c55e; /* Green for links */
-            stroke-opacity: 0.8;
-            stroke-width: 2px;
-            transition: all 0.2s ease-in-out;
-            fill: none;
-            stroke-dasharray: 10, 5;
-            animation: flow 2s linear infinite;
-        }
-        .link.active {
-            stroke: #60a5fa;
-            stroke-width: 3px;
-            stroke-opacity: 1;
-        }
-        /* Style for an API-to-API link */
-        .api-api-link {
-            stroke: #f97316; /* Orange for API-to-API links */
-            stroke-opacity: 0.8;
-            stroke-width: 2px;
-            transition: all 0.2s ease-in-out;
-            fill: none;
-            stroke-dasharray: 10, 5;
-            animation: flow 2s linear infinite;
-        }
-        .api-api-link.active {
-            stroke: #60a5fa;
-            stroke-width: 3px;
-            stroke-opacity: 1;
-        }
-        .node-label {
-            pointer-events: none;
-            text-anchor: middle;
-            font-size: 10px;
-            fill: #d1d5db; /* Light gray label */
-            user-select: none;
-        }
-        .highlighted-label {
-            font-weight: 700;
-            font-size: 12px;
-            fill: #f3f4f6; /* Very light label */
-        }
-        #tooltip {
-            position: absolute;
-            padding: 8px;
-            background-color: rgba(55, 65, 81, 0.9); /* Dark background with opacity */
-            border: 1px solid #4b5563;
-            color: #d1d5db;
-            border-radius: 6px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        .splash-text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            font-size: 1.25rem;
-            color: #d1d5db;
-            user-select: none;
-        }
-        /* Loading spinner animation */
-        .loader {
-            border: 4px solid #4b5563; /* Darker border */
-            border-top: 4px solid #60a5fa; /* Lighter blue for spinner */
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Styles for the related, solid grey relationship line */
-        .related-link {
-            stroke: #9ca3af; /* Solid grey */
-            stroke-width: 2px;
-            transition: all 0.2s ease-in-out;
-        }
-        .related-link.active {
-            stroke: #9ca3af;
-            stroke-width: 3px;
-        }
-        
-        /* Animation for the dashed line to simulate flow */
-        @keyframes flow {
-            to {
-                stroke-dashoffset: -15;
-            }
+        .chart-container::-webkit-scrollbar-thumb:hover {
+            background: #047857;
         }
     </style>
 </head>
-<body class="p-0">
+<body>
 
-    <!-- Header Container -->
-    <div id="header-container" class="max-w-4xl mx-auto w-full px-8 py-6">
-        <h1 class="text-3xl font-bold text-gray-100 mb-2 text-center">API Dependency Visualizer</h1>
-        <p class="text-gray-300 mb-6 text-center">Upload a YAML file or use the default example to see an interactive graph of your API dependencies.</p>
-        
-        <!-- File Input and Controls -->
-        <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-8">
-            <label for="yamlFileInput" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-full shadow-md cursor-pointer transition-colors duration-200">
-                Choose YAML File
-            </label>
-            <input type="file" id="yamlFileInput" class="hidden" accept=".yaml, .yml">
-            <input type="text" id="searchInput" placeholder="Search API..." class="px-4 py-2 border border-gray-600 bg-gray-700 text-gray-100 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 w-full sm:w-1/2">
-        </div>
-
-        <!-- Legend -->
-        <div class="flex flex-wrap items-center justify-center space-x-4 text-gray-300">
-            <div class="flex items-center">
-                <span class="inline-block w-4 h-4 rounded-full bg-blue-500 mr-2"></span>
-                <span>API</span>
-            </div>
-            <div class="flex items-center">
-                <span class="inline-block w-4 h-4 rounded-full bg-orange-400 mr-2"></span>
-                <span>Client/App</span>
-            </div>
-            <div class="flex items-center">
-                <svg width="24" height="2" class="mr-2">
-                    <line x1="0" y1="1" x2="24" y2="1" style="stroke:#f97316;stroke-width:2" />
-                </svg>
-                <span>API to API Call</span>
-            </div>
-            <div class="flex items-center">
-                <svg width="24" height="2" class="mr-2">
-                    <line x1="0" y1="1" x2="24" y2="1" style="stroke:#9ca3af;stroke-width:2" />
-                </svg>
-                <span>Related APIs</span>
+<div id="app" class="min-h-screen p-4 sm:p-8 flex items-center justify-center">
+    <div class="w-full max-w-2xl bg-white shadow-2xl rounded-xl border-t-8 border-red-700 overflow-hidden">
+        <header class="bg-red-700 text-white p-6 text-center">
+            <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">
+                {{ selectedYear }} McInelly Christmas Chart
+            </h1>
+        </header>
+        <div class="p-6 bg-red-50 flex justify-center">
+            <div class="flex items-center space-x-3 w-full sm:w-auto">
+                <label for="year-select" class="font-semibold text-gray-700 whitespace-nowrap">Select Year:</label>
+                <select id="year-select" v-model.number="selectedYear" class="p-2 border border-red-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500 transition duration-150 ease-in-out font-bold text-red-700 w-full sm:w-auto">
+                    <option v-for="year in yearOptions" :key="year" :value="year">{{ year }}</option>
+                </select>
             </div>
         </div>
+        <div class="p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-green-500 pb-2">
+                The {{ selectedYear }} Pairing
+            </h2>
+            
+            <div class="bg-green-50 border border-green-300 rounded-lg p-3 sm:p-6 shadow-md chart-container max-h-96 overflow-y-auto">
+                <div v-if="chartData.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div v-for="(item, index) in chartData" :key="index"
+                         class="flex justify-between items-center p-3 rounded-xl shadow-lg transition duration-300 ease-in-out"
+                         :class="index % 2 === 0 ? 'bg-white hover:bg-red-100' : 'bg-green-100 hover:bg-white'">
+                        <span class="font-bold text-red-700 text-lg">
+                            {{ item.giver }}
+                        </span>
+                        <svg class="w-6 h-6 text-green-700 mx-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2007/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                        </svg>
+                        <span class="font-bold text-green-700 text-lg">
+                            {{ item.recipient }}
+                        </span>
+                    </div>
+                </div>
+                <p v-else class="text-center text-gray-500 py-8">
+                    Loading pairings...
+                </p>
+            </div>
+        </div>
+        <footer class="bg-red-700 text-white text-center p-4 text-sm">
+            Merry Christmas.
+        </footer>
     </div>
-
-    <!-- Visualization Container -->
-    <div id="visualizationContainer" class="fixed inset-0">
-        <svg id="dependencyGraph"></svg>
-        <div id="splashScreen" class="splash-text">
-            <p>Click "Choose YAML File" to get started.</p>
-            <p>Or wait a moment for the example graph to appear.</p>
-        </div>
-        <div id="loadingIndicator" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center space-y-4">
-            <div class="loader"></div>
-            <p class="text-gray-400 text-lg">Loading graph...</p>
-        </div>
-        <div id="tooltip" class="rounded-lg text-sm"></div>
-    </div>
-
-    <!-- D3.js library from CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const fileInput = document.getElementById('yamlFileInput');
-            const searchInput = document.getElementById('searchInput');
-            const svg = d3.select("#dependencyGraph");
-            const tooltip = d3.select("#tooltip");
-            const splashScreen = document.getElementById('splashScreen');
-            const loadingIndicator = document.getElementById('loadingIndicator');
-
-            let allGraphData = { nodes: [], links: [], relatedLinks: [] };
-            
-            // Define the SVG groups for links and nodes
-            const g = svg.append("g");
-            
-            // Define arrowhead marker
-            svg.append("defs").append("marker")
-                .attr("id", "arrowhead-green")
-                .attr("viewBox", "0 -5 10 10")
-                .attr("refX", 50) 
-                .attr("refY", 0)
-                .attr("orient", "auto")
-                .attr("markerWidth", 6)
-                .attr("markerHeight", 6)
-                .attr("xoverflow", "visible")
-                .append("path")
-                .attr("d", "M 0,-5 L 10 ,0 L 0,5")
-                .attr("fill", "#22c55e")
-                .style("stroke", "none");
-
-            svg.append("defs").append("marker")
-                .attr("id", "arrowhead-orange")
-                .attr("viewBox", "0 -5 10 10")
-                .attr("refX", 50) 
-                .attr("refY", 0)
-                .attr("orient", "auto")
-                .attr("markerWidth", 6)
-                .attr("markerHeight", 6)
-                .attr("xoverflow", "visible")
-                .append("path")
-                .attr("d", "M 0,-5 L 10 ,0 L 0,5")
-                .attr("fill", "#f97316")
-                .style("stroke", "none");
-
-            const linksGroup = g.append("g").attr("class", "links");
-            const nodesGroup = g.append("g").attr("class", "nodes");
-            
-            // Set up a zoom handler
-            const zoom = d3.zoom()
-                .scaleExtent([0.1, 8])
-                .on("zoom", (event) => {
-                    g.attr("transform", event.transform);
-                });
-            svg.call(zoom);
-
-            const simulation = d3.forceSimulation()
-                .force("link", d3.forceLink().id(d => d.id).distance(600).strength(0.8))
-                .force("charge", d3.forceManyBody().strength(-1500))
-                .force("collision", d3.forceCollide().radius(50));
-                
-            // Function to handle window resize
-            function resize() {
-                const visualizationContainer = document.getElementById('visualizationContainer');
-                const width = visualizationContainer.clientWidth;
-                const height = visualizationContainer.clientHeight;
-                
-                svg.attr("width", width).attr("height", height);
-
-                simulation.force("center", d3.forceCenter(width / 2, height / 2));
-                simulation.alpha(1).restart();
-            }
-            window.addEventListener('resize', resize);
-
-
-            const sampleYaml = `
-# -----------------------------------------------------------------------------
-# HUMAN RESOURCES DOMAIN
-# -----------------------------------------------------------------------------
-# EXP APIs (used by front-end applications)
-exp-api-employee-portal:
-  - int-api-employee-data
-  - int-api-payroll-info
-  - metrics-client
-  - employee-mobile-app
-  - employee-web-portal
-
-exp-api-benefits-enrollment:
-  - int-api-employee-data
-  - sys-api-third-party-benefits
-  - metrics-client
-  - benefits-enrollment-app
-
-exp-api-onboarding-workflow:
-  - int-api-employee-data
-  - sys-api-hr-legacy-systems
-  - metrics-client
-  - hr-admin-console
-
-exp-api-recruiting-dashboard:
-  - int-api-candidate-data
-  - sys-api-job-postings
-  - metrics-client
-  - recruiter-web-app
-
-# INT APIs (orchestrate data from SYS)
-int-api-employee-data:
-  - sys-api-employee-db
-  - sys-api-user-directory
-  - metrics-client
-
-int-api-payroll-info:
-  - sys-api-payroll-services
-  - metrics-client
-
-int-api-candidate-data:
-  - sys-api-candidate-db
-  - sys-api-hr-legacy-systems
-  - metrics-client
-
-# SYS APIs (core, foundational services)
-sys-api-employee-db:
-  - metrics-client
-
-sys-api-user-directory:
-  - metrics-client
-
-sys-api-payroll-services:
-  - metrics-client
-
-sys-api-third-party-benefits:
-  - metrics-client
-
-sys-api-hr-legacy-systems:
-  - metrics-client
-
-sys-api-candidate-db:
-  - metrics-client
-
-sys-api-job-postings:
-  - metrics-client
-
-# -----------------------------------------------------------------------------
-# FINANCE DOMAIN
-# -----------------------------------------------------------------------------
-# EXP APIs
-exp-api-billing-dashboard:
-  - int-api-invoice-data
-  - int-api-payment-gateway
-  - metrics-client
-  - customer-billing-portal
-
-exp-api-financial-reports:
-  - int-api-ledger-data
-  - metrics-client
-  - executive-dashboard
-
-exp-api-fraud-management:
-  - int-api-transaction-data
-  - sys-api-fraud-detection
-  - metrics-client
-  - fraud-analyst-console
-
-exp-api-expense-management:
-  - int-api-expense-data
-  - sys-api-receipt-storage
-  - metrics-client
-  - employee-expense-app
-
-# INT APIs
-int-api-invoice-data:
-  - sys-api-invoice-db
-  - sys-api-payment-history
-  - metrics-client
-
-int-api-payment-gateway:
-  - sys-api-payment-processor
-  - metrics-client
-
-int-api-ledger-data:
-  - sys-api-ledger-db
-  - metrics-client
-
-int-api-transaction-data:
-  - sys-api-transaction-log
-  - metrics-client
-
-int-api-expense-data:
-  - sys-api-expense-tracker
-  - metrics-client
-
-# SYS APIs
-sys-api-invoice-db:
-  - metrics-client
-
-sys-api-payment-history:
-  - metrics-client
-
-sys-api-payment-processor:
-  - metrics-client
-
-sys-api-ledger-db:
-  - metrics-client
-
-sys-api-transaction-log:
-  - metrics-client
-
-sys-api-fraud-detection:
-  - metrics-client
-
-sys-api-expense-tracker:
-  - metrics-client
-
-sys-api-receipt-storage:
-  - metrics-client
-
-# -----------------------------------------------------------------------------
-# LOGISTICS & SUPPLY CHAIN DOMAIN
-# -----------------------------------------------------------------------------
-# EXP APIs
-exp-api-order-tracking:
-  - int-api-shipment-status
-  - sys-api-customer-service
-  - metrics-client
-  - public-tracking-web
-
-exp-api-inventory-dashboard:
-  - int-api-stock-levels
-  - metrics-client
-  - warehouse-management-app
-
-exp-api-vendor-portal:
-  - int-api-vendor-data
-  - metrics-client
-  - external-vendor-app
-
-exp-api-shipping-cost:
-  - int-api-carrier-rates
-  - metrics-client
-  - sales-web-app
-
-# INT APIs
-int-api-shipment-status:
-  - sys-api-carrier-tracking
-  - sys-api-logistics-db
-  - metrics-client
-
-int-api-stock-levels:
-  - sys-api-warehouse-inventory
-  - sys-api-product-locations
-  - metrics-client
-
-int-api-vendor-data:
-  - sys-api-vendor-db
-  - metrics-client
-
-int-api-carrier-rates:
-  - sys-api-carrier-apis
-  - metrics-client
-
-# SYS APIs
-sys-api-carrier-tracking:
-  - metrics-client
-
-sys-api-logistics-db:
-  - metrics-client
-
-sys-api-customer-service:
-  - metrics-client
-
-sys-api-warehouse-inventory:
-  - metrics-client
-
-sys-api-product-locations:
-  - metrics-client
-
-sys-api-vendor-db:
-  - metrics-client
-
-sys-api-carrier-apis:
-  - metrics-client
-
-# -----------------------------------------------------------------------------
-# IVR (INTERACTIVE VOICE RESPONSE) DOMAIN
-# -----------------------------------------------------------------------------
-# EXP APIs (front end to voice system)
-exp-api-ivr-routing:
-  - int-api-call-flow
-  - sys-api-contact-center-db
-  - metrics-client
-  - ivr-user-experience
-
-exp-api-ivr-speech-to-text:
-  - int-api-voice-transcription
-  - metrics-client
-  - ivr-user-experience
-
-exp-api-ivr-text-to-speech:
-  - sys-api-voice-generation
-  - metrics-client
-  - ivr-user-experience
-
-exp-api-ivr-support-info:
-  - sys-api-faq-db
-  - metrics-client
-  - ivr-user-experience
-
-# INT APIs
-int-api-call-flow:
-  - sys-api-routing-engine
-  - metrics-client
-
-int-api-voice-transcription:
-  - sys-api-speech-processor
-  - metrics-client
-
-# SYS APIs
-sys-api-contact-center-db:
-  - metrics-client
-
-sys-api-routing-engine:
-  - metrics-client
-
-sys-api-speech-processor:
-  - metrics-client
-
-sys-api-voice-generation:
-  - metrics-client
-
-sys-api-faq-db:
-  - metrics-client
-
-# -----------------------------------------------------------------------------
-# SECURITY & IDENTITY DOMAIN
-# -----------------------------------------------------------------------------
-# EXP APIs
-exp-api-user-auth:
-  - int-api-identity-verification
-  - sys-api-auth-token
-  - metrics-client
-  - login-mobile-screen
-  - SSO-login-flow
-
-exp-api-password-reset:
-  - int-api-identity-verification
-  - sys-api-email-notification
-  - metrics-client
-  - forgot-password-form
-
-# INT APIs
-int-api-identity-verification:
-  - sys-api-user-directory
-  - sys-api-auth-service
-  - metrics-client
-
-# SYS APIs
-sys-api-auth-token:
-  - metrics-client
-
-sys-api-user-directory:
-  - metrics-client
-
-sys-api-auth-service:
-  - metrics-client
-
-sys-api-email-notification:
-  - metrics-client
-  
-# -----------------------------------------------------------------------------
-# UTILITY AND MISCELLANEOUS
-# -----------------------------------------------------------------------------
-# A "Client" is not an API that can be called, but rather a service or app that
-# pulls data from APIs. All of our APIs call it for healthcheck purposes.
-metrics-client:
-`;
-
-            fileInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (!file) {
-                    return;
+</div>
+
+<script type="module">
+    const { createApp, ref, computed, watch, onMounted } = Vue;
+
+    const App = {
+        setup() {
+            const START_YEAR = 2020; 
+            const BASE_YEAR = 2025;
+            const PARTICIPANTS = ['Preston', 'Shiloh', 'Parker', 'Natalie', 'Landon', 'Shannyn', 'Ian', 'Carter'];
+            const N = PARTICIPANTS.length; // 8
+            const T_BASE_INDICES = [7, 6, 5, 4, 0, 1, 2, 3];
+            const currentYear = new Date().getFullYear();
+            const selectedYear = ref(currentYear);
+            const yearOptions = computed(() => {
+                const startYear = currentYear;
+                const endYear = currentYear + 10;
+                const years = [];
+                for (let y = startYear; y <= endYear; y++) {
+                    years.push(y);
                 }
-
-                splashScreen.style.display = 'none';
-                loadingIndicator.classList.remove('hidden');
-
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const yamlContent = e.target.result;
-                        // Use the new manual parser to handle duplicate keys
-                        const data = parseYamlManually(yamlContent);
-                        
-                        allGraphData = processYamlData(data);
-                        updateGraph(allGraphData);
-                        
-                    } catch (error) {
-                        console.error("Error parsing YAML:", error);
-                        // Using a modal-like div instead of alert
-                        const errorMessage = document.createElement('div');
-                        errorMessage.style.cssText = `
-                            position: absolute;
-                            top: 50%;
-                            left: 50%;
-                            transform: translate(-50%, -50%);
-                            background: white;
-                            padding: 2rem;
-                            border-radius: 1rem;
-                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                            z-index: 100;
-                            text-align: center;
-                            color: #1f2937;
-                        `;
-                        errorMessage.innerHTML = `
-                            <p class="text-red-500 font-bold mb-4">Error</p>
-                            <p>Could not parse YAML file. Please check the file format.</p>
-                        `;
-                        document.body.appendChild(errorMessage);
-                        setTimeout(() => errorMessage.remove(), 5000);
-                        loadingIndicator.classList.add('hidden');
-                    }
-                };
-                reader.readAsText(file);
+                return years;
             });
-            
-            searchInput.addEventListener('input', (event) => {
-                const query = event.target.value.toLowerCase();
-                filterGraph(query);
-            });
-            
-            // New manual parsing function to handle duplicate top-level keys
-            function parseYamlManually(yamlString) {
-                const lines = yamlString.split('\n');
-                const result = {};
-                let currentKey = null;
-                const keyCounts = new Map();
 
-                lines.forEach(line => {
-                    const trimmedLine = line.trim();
-                    if (trimmedLine.length === 0 || trimmedLine.startsWith('#')) {
-                        return;
-                    }
-
-                    // Check for a new top-level key (starts at the beginning of the line)
-                    const keyMatch = trimmedLine.match(/^([a-zA-Z0-9_-]+):/);
-                    if (keyMatch) {
-                        const originalKey = keyMatch[1];
-                        let count = keyCounts.get(originalKey) || 0;
-                        count++;
-                        keyCounts.set(originalKey, count);
-                        
-                        // If it's a duplicate, append a unique suffix
-                        currentKey = originalKey;
-                        if (count > 1) {
-                            currentKey = `${originalKey}-dup-${count}`;
-                        }
-                        result[currentKey] = [];
-                        return;
-                    }
-
-                    // Check for a list item (starts with a hyphen)
-                    const itemMatch = trimmedLine.match(/^- ([a-zA-Z0-9_-]+)/);
-                    if (itemMatch && currentKey) {
-                        result[currentKey].push(itemMatch[1]);
-                    }
-                });
-
-                return result;
-            }
-
-            function processYamlData(yamlObject) {
-                const nodes = new Map();
-                const links = [];
-                const relatedLinks = [];
-                
-                // Regex to strip environment prefixes/suffixes and the new duplicate suffix
-                const envPrefix = /^(prod-|dev-|stage-|test-|prd-|[a-zA-Z0-9_-]+-dup-)/i;
-                const envSuffix = /(-prod|-dev|-stage|-test|-prd|-dup-[0-9]+)$/i;
-
-                const canonicalCounts = new Map();
-                const keyToUniqueId = new Map();
-
-                const getCanonicalName = (name) => {
-                    let canonicalName = name.trim();
-                    canonicalName = canonicalName.replace(envPrefix, '');
-                    canonicalName = canonicalName.replace(envSuffix, '');
-                    return canonicalName;
-                };
-
-                // Step 1: Process top-level keys to create a unique ID for each and build a list of all canonical IDs
-                const allCanonicalIds = new Set();
-                const canonicalToUniqueIds = new Map();
-
-                for (const key in yamlObject) {
-                    if (yamlObject.hasOwnProperty(key)) {
-                        const canonicalName = getCanonicalName(key);
-                        allCanonicalIds.add(canonicalName);
-
-                        let uniqueId = canonicalName;
-                        if (canonicalCounts.has(canonicalName)) {
-                            const count = canonicalCounts.get(canonicalName) + 1;
-                            canonicalCounts.set(canonicalName, count);
-                            uniqueId = `${canonicalName} (${count})`;
-                        } else {
-                            canonicalCounts.set(canonicalName, 0);
-                        }
-                        keyToUniqueId.set(key, uniqueId);
-                        
-                        // Store the mapping from canonical name to its unique IDs
-                        if (!canonicalToUniqueIds.has(canonicalName)) {
-                            canonicalToUniqueIds.set(canonicalName, []);
-                        }
-                        canonicalToUniqueIds.get(canonicalName).push(uniqueId);
-                        
-                        const dependencies = yamlObject[key];
-                        if (Array.isArray(dependencies)) {
-                            dependencies.forEach(dep => {
-                                allCanonicalIds.add(getCanonicalName(dep));
-                            });
-                        }
-                    }
-                }
-
-                // Step 2: Create a single node for each canonical ID
-                for (const id of allCanonicalIds) {
-                    const isApi = canonicalToUniqueIds.has(id);
-                    nodes.set(id, {
-                        id: id,
-                        type: isApi ? 'api' : 'client'
+            const chartData = computed(() => {
+                const year = selectedYear.value;
+                if (!year) return [];
+                const yearDiff = year - BASE_YEAR;
+                const S = (yearDiff % N + N) % N; 
+                const pairings = [];
+                for (let k = 0; k < N; k++) {
+                    const giverName = PARTICIPANTS[k];
+                    const i = (k - S + N) % N;
+                    const j_base = T_BASE_INDICES[i];
+                    const j = (j_base + S) % N;
+                    const recipientName = PARTICIPANTS[j];
+                    pairings.push({
+                        giver: giverName,
+                        recipient: recipientName
                     });
                 }
                 
-                // Add nodes for de-duplicated top-level keys
-                for (const [canonicalName, uniqueIds] of canonicalToUniqueIds.entries()) {
-                    if (uniqueIds.length > 1) {
-                         uniqueIds.forEach(id => {
-                            if (!nodes.has(id)) {
-                                nodes.set(id, {
-                                    id: id,
-                                    type: 'api'
-                                });
-                            }
-                        });
+                return pairings;
+            });
+
+            onMounted(() => {
+                if (BASE_YEAR === currentYear) {
+                    const expected = [
+                        { giver: 'Preston', recipient: 'Carter' },
+                        { giver: 'Shiloh', recipient: 'Ian' },
+                        { giver: 'Parker', recipient: 'Shannyn' },
+                        { giver: 'Natalie', recipient: 'Landon' },
+                        { giver: 'Landon', recipient: 'Preston' },
+                        { giver: 'Shannyn', recipient: 'Shiloh' },
+                        { giver: 'Ian', recipient: 'Parker' },
+                        { giver: 'Carter', recipient: 'Natalie' }
+                    ];
+
+                    const actual = chartData.value;
+                    const matches = actual.every((item, index) => 
+                        item.giver === expected[index].giver && item.recipient === expected[index].recipient
+                    );
+
+                    if (!matches) {
+                        console.error("ALERT: The calculated 2025 chart does NOT match the user's required pairings. Check T_BASE_INDICES or the formula.");
                     }
                 }
+            });
 
-                // Step 3: Create the links using the canonical IDs
-                for (const sourceApi in yamlObject) {
-                    if (yamlObject.hasOwnProperty(sourceApi)) {
-                        const cleanSourceApi = keyToUniqueId.get(sourceApi);
-                        const dependencies = yamlObject[sourceApi];
-                        if (Array.isArray(dependencies)) {
-                            dependencies.forEach(targetApi => {
-                                const cleanTargetApi = getCanonicalName(targetApi);
-                                links.push({
-                                    source: cleanSourceApi,
-                                    target: cleanTargetApi
-                                });
-                            });
-                        }
-                    }
-                }
-                
-                // Step 4: Create special links for related nodes
-                for (const [canonicalName, uniqueIds] of canonicalToUniqueIds.entries()) {
-                    if (uniqueIds.length > 1) {
-                        for (let i = 0; i < uniqueIds.length - 1; i++) {
-                            relatedLinks.push({
-                                source: uniqueIds[i],
-                                target: uniqueIds[i+1]
-                            });
-                        }
-                    }
-                }
+            return {
+                selectedYear,
+                yearOptions,
+                chartData,
+            };
+        }
+    };
 
-                return {
-                    nodes: Array.from(nodes.values()),
-                    links: links,
-                    relatedLinks: relatedLinks
-                };
-            }
+    createApp(App).mount('#app');
+</script>
 
-            function updateGraph(graphData) {
-                // Hide loading indicator
-                loadingIndicator.classList.add('hidden');
-                splashScreen.style.display = 'none';
-
-                // Clear previous graph
-                linksGroup.selectAll("*").remove();
-                nodesGroup.selectAll("*").remove();
-                
-                const visualizationContainer = document.getElementById('visualizationContainer');
-                const width = visualizationContainer.clientWidth;
-                const height = visualizationContainer.clientHeight;
-                
-                // Set SVG dimensions and viewbox for responsiveness
-                svg.attr("width", width).attr("height", height);
-
-                const nodesById = new Map(graphData.nodes.map(d => [d.id, d]));
-
-                // Separate links into two groups based on node types
-                const apiToApiLinks = graphData.links.filter(d => 
-                    nodesById.get(d.source)?.type === 'api' && nodesById.get(d.target)?.type === 'api'
-                );
-                const otherLinks = graphData.links.filter(d => 
-                    !(nodesById.get(d.source)?.type === 'api' && nodesById.get(d.target)?.type === 'api')
-                );
-
-                // Create solid grey related links
-                const relatedLink = linksGroup.selectAll(".related-link")
-                    .data(graphData.relatedLinks)
-                    .enter().append("line")
-                    .attr("class", "related-link");
-
-                // Create dependency links with green flow animation
-                const otherLink = linksGroup.selectAll(".link")
-                    .data(otherLinks)
-                    .enter().append("line")
-                    .attr("class", "link")
-                    .attr("marker-end", "url(#arrowhead-green)");
-
-                // Create API-to-API links with orange flow animation
-                const apiToApiLink = linksGroup.selectAll(".api-api-link")
-                    .data(apiToApiLinks)
-                    .enter().append("line")
-                    .attr("class", "api-api-link")
-                    .attr("marker-end", "url(#arrowhead-orange)");
-
-                // Combine all link types for simulation
-                const allLinks = graphData.relatedLinks.concat(apiToApiLinks).concat(otherLinks);
-
-                // Create nodes
-                const node = nodesGroup.selectAll("g")
-                    .data(graphData.nodes)
-                    .enter().append("g")
-                    .attr("class", "node");
-
-                const circles = node.append("circle")
-                    .attr("class", "node-circle")
-                    .attr("r", 45)
-                    .attr("fill", d => d.type === 'api' ? "#3b82f6" : "#f59e0b")
-                    .call(d3.drag()
-                        .on("start", dragstarted)
-                        .on("drag", dragged)
-                        .on("end", dragended));
-                
-                // Add labels
-                const labels = node.append("text")
-                    .attr("class", "node-label")
-                    .attr("dy", "0.5em")
-                    .text(d => d.id);
-                
-                // Handle click events for highlighting
-                node.on("click", (event, d) => {
-                    const isAlreadyActive = d3.select(event.currentTarget).select("circle").classed("active");
-                    
-                    // Reset all highlights
-                    circles.classed("active", false);
-                    otherLink.classed("active", false);
-                    apiToApiLink.classed("active", false);
-                    relatedLink.classed("active", false);
-                    labels.classed("highlighted-label", false);
-                    
-                    if (!isAlreadyActive) {
-                        // Highlight the clicked node
-                        d3.select(event.currentTarget).select("circle").classed("active", true);
-                        d3.select(event.currentTarget).select("text").classed("highlighted-label", true);
-                        
-                        // Highlight incoming and outgoing links
-                        otherLink.filter(l => l.source.id === d.id || l.target.id === d.id)
-                            .classed("active", true);
-                        apiToApiLink.filter(l => l.source.id === d.id || l.target.id === d.id)
-                            .classed("active", true);
-
-                        // Highlight related links
-                        relatedLink.filter(l => l.source.id === d.id || l.target.id === d.id)
-                            .classed("active", true);
-
-                        // Highlight source and target nodes
-                        node.filter(n => allLinks.some(l => 
-                            (l.source.id === d.id && l.target.id === n.id) ||
-                            (l.target.id === d.id && l.source.id === n.id)
-                        ))
-                        .select("circle").classed("active", true);
-                    }
-                });
-                
-                // Add hover tooltip
-                node.on("mouseover", (event, d) => {
-                    tooltip.html(`<strong>${d.id}</strong><br>Type: ${d.type === 'api' ? 'API' : 'Client'}`)
-                        .style("opacity", 1);
-                }).on("mousemove", (event) => {
-                    tooltip.style("left", (event.pageX + 10) + "px")
-                        .style("top", (event.pageY + 10) + "px");
-                }).on("mouseout", () => {
-                    tooltip.style("opacity", 0);
-                });
-
-                // Update simulation forces
-                simulation.nodes(graphData.nodes);
-                simulation.force("link").links(allLinks);
-                simulation.alpha(1).restart();
-
-                // Update positions on each tick
-                simulation.on("tick", () => {
-                    otherLink
-                        .attr("x1", d => d.source.x)
-                        .attr("y1", d => d.source.y)
-                        .attr("x2", d => d.target.x)
-                        .attr("y2", d => d.target.y);
-
-                    apiToApiLink
-                        .attr("x1", d => d.source.x)
-                        .attr("y1", d => d.source.y)
-                        .attr("x2", d => d.target.x)
-                        .attr("y2", d => d.target.y);
-                    
-                    relatedLink
-                        .attr("x1", d => d.source.x)
-                        .attr("y1", d => d.source.y)
-                        .attr("x2", d => d.target.x)
-                        .attr("y2", d => d.target.y);
-
-                    node
-                        .attr("transform", d => `translate(${d.x}, ${d.y})`);
-                });
-
-                function dragstarted(event, d) {
-                    if (!event.active) simulation.alphaTarget(0.3).restart();
-                    d.fx = d.x;
-                    d.fy = d.y;
-                }
-
-                function dragged(event, d) {
-                    d.fx = event.x;
-                    d.fy = event.y;
-                }
-
-                function dragended(event, d) {
-                    if (!event.active) simulation.alphaTarget(0);
-                    d.fx = null;
-                    d.fy = null;
-                }
-            }
-
-            // Function to filter the graph based on a search query
-            function filterGraph(query) {
-                const visibleNodes = new Set();
-                const visibleLinks = new Set();
-                const visibleRelatedLinks = new Set();
-                const nodesById = new Map(allGraphData.nodes.map(d => [d.id, d]));
-
-                if (query.length > 0) {
-                    const matchedNodes = allGraphData.nodes.filter(d => d.id.toLowerCase().includes(query));
-                    
-                    matchedNodes.forEach(node => {
-                        visibleNodes.add(node);
-                        allGraphData.links.forEach(l => {
-                            if (l.source.id === node.id || l.target.id === node.id) {
-                                visibleNodes.add(nodesById.get(l.source.id));
-                                visibleNodes.add(nodesById.get(l.target.id));
-                                visibleLinks.add(l);
-                            }
-                        });
-                        allGraphData.relatedLinks.forEach(l => {
-                            if (l.source.id === node.id || l.target.id === node.id) {
-                                visibleNodes.add(nodesById.get(l.source.id));
-                                visibleNodes.add(nodesById.get(l.target.id));
-                                visibleRelatedLinks.add(l);
-                            }
-                        });
-                    });
-                } else {
-                    allGraphData.nodes.forEach(node => visibleNodes.add(node));
-                    allGraphData.links.forEach(link => visibleLinks.add(link));
-                    allGraphData.relatedLinks.forEach(link => visibleRelatedLinks.add(link));
-                }
-
-                updateGraph({
-                    nodes: Array.from(visibleNodes),
-                    links: Array.from(visibleLinks),
-                    relatedLinks: Array.from(visibleRelatedLinks)
-                });
-            }
-
-            // Automatically load the sample data on initial page load
-            window.onload = function() {
-                const data = parseYamlManually(sampleYaml);
-                allGraphData = processYamlData(data);
-                updateGraph(allGraphData);
-                resize(); // Initial resize to fit the screen
-            }
-        });
-    </script>
 </body>
 </html>
