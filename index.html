@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="author" content="Preston, the oldest">
-    <title>McInelly Christmas Chart Generator</title>
+   <title>McInelly Christmas Chart Generator</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Vue 3 CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Tone.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -17,9 +19,9 @@
         }
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f7f7f7;
+            background-color: #10b981; 
+            background-attachment: fixed;
         }
-        /* Custom scrollbar for better aesthetics */
         .chart-container::-webkit-scrollbar {
             width: 8px;
         }
@@ -38,7 +40,7 @@
 <body>
 
 <div id="app" class="min-h-screen p-4 sm:p-8 flex items-center justify-center">
-    <div class="w-full max-w-2xl bg-white shadow-2xl rounded-xl border-t-8 border-red-700 overflow-hidden">
+    <div class="w-full max-w-3xl bg-white shadow-2xl rounded-xl border-t-8 border-red-700 overflow-hidden">
         <header class="bg-red-700 text-white p-6 text-center">
             <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">
                 {{ selectedYear }} McInelly Christmas Chart
@@ -56,20 +58,25 @@
             <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-green-500 pb-2">
                 The {{ selectedYear }} Pairing
             </h2>
-            
-            <div class="bg-green-50 border border-green-300 rounded-lg p-3 sm:p-6 shadow-md chart-container max-h-96 overflow-y-auto">
+            <div class="bg-white border border-green-300 rounded-lg p-3 sm:p-6 shadow-md chart-container max-h-96 overflow-y-auto">
                 <div v-if="chartData.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div v-for="(item, index) in chartData" :key="index"
                          class="flex justify-between items-center p-3 rounded-xl shadow-lg transition duration-300 ease-in-out"
-                         :class="index % 2 === 0 ? 'bg-white hover:bg-red-100' : 'bg-green-100 hover:bg-white'">
-                        <span class="font-bold text-red-700 text-lg">
-                            {{ item.giver }}
+                         :class="index % 2 === 0 ? 'bg-gray-50 hover:bg-red-100' : 'bg-white hover:bg-gray-100'">
+                        <span class="font-bold text-green-700 text-lg cursor-pointer transition-all duration-150 transform hover:scale-[1.02]"
+                            @mousedown.prevent="handleNameStateChange(item.giver, true)"
+                            @mouseup="handleNameStateChange(item.giver, false)"
+                            @mouseleave="handleNameStateChange(item.giver, false)">
+                            {{ getDisplayName(item.giver) }}
                         </span>
-                        <svg class="w-6 h-6 text-green-700 mx-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2007/svg">
+                        <svg class="w-6 h-6 text-red-700 mx-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
                         </svg>
-                        <span class="font-bold text-green-700 text-lg">
-                            {{ item.recipient }}
+                        <span class="font-bold text-red-700 text-lg cursor-pointer transition-all duration-150 transform hover:scale-[1.02]"
+                            @mousedown.prevent="handleNameStateChange(item.recipient, true)"
+                            @mouseup="handleNameStateChange(item.recipient, false)"
+                            @mouseleave="handleNameStateChange(item.recipient, false)">
+                            {{ getDisplayName(item.recipient) }}
                         </span>
                     </div>
                 </div>
@@ -79,23 +86,92 @@
             </div>
         </div>
         <footer class="bg-red-700 text-white text-center p-4 text-sm">
-            Merry Christmas.
+            Merry Christmas
         </footer>
     </div>
 </div>
 
 <script type="module">
-    const { createApp, ref, computed, watch, onMounted } = Vue;
-
+    const { createApp, ref, computed, onMounted } = Vue;
     const App = {
         setup() {
-            const START_YEAR = 2020; 
             const BASE_YEAR = 2025;
             const PARTICIPANTS = ['Preston', 'Shiloh', 'Parker', 'Natalie', 'Landon', 'Shannyn', 'Ian', 'Carter'];
             const N = PARTICIPANTS.length; // 8
             const T_BASE_INDICES = [7, 6, 5, 4, 0, 1, 2, 3];
             const currentYear = new Date().getFullYear();
             const selectedYear = ref(currentYear);
+            const carterMode = ref(false);
+            const landonMode = ref(false);
+            const parkerMode = ref(false);
+            const ianMode = ref(false);
+
+            let quackSynth = null;
+            const initTone = () => {
+                 try {
+                    quackSynth = new Tone.FMSynth({
+                        envelope: {
+                            attack: 0.01,
+                            decay: 0.05,
+                            sustain: 0,
+                            release: 0.05
+                        },
+                        modulationIndex: 10,
+                        oscillator: { type: "sine" },
+                        modulation: { type: "square" }
+                    }).toDestination();
+                } catch (e) {
+                    console.error("Tone.js initialization failed:", e);
+                }
+            };
+            
+            const playQuack = () => {
+                if (quackSynth) {
+                    Tone.start().then(() => {
+                        const now = Tone.now();
+                        const duration = 0.05; 
+                        const delay = 0.06; 
+                        const velocity = 0.5;
+
+                        quackSynth.triggerAttackRelease("G4", duration, now, velocity);
+                        quackSynth.triggerAttackRelease("D4", duration, now + delay, velocity);
+                    });
+                }
+            };
+            
+            const handleNameStateChange = (name, isPressed) => {
+                const originalName = name; 
+
+                if (originalName === 'Carter') {
+                    carterMode.value = isPressed;
+                    if (isPressed) {
+                        playQuack();
+                    }
+                } else if (originalName === 'Landon') {
+                    landonMode.value = isPressed;
+                } else if (originalName === 'Parker') {
+                    parkerMode.value = isPressed;
+                } else if (originalName === 'Ian') {
+                    ianMode.value = isPressed;
+                }
+            };
+
+            const getDisplayName = (name) => {
+                if (name === 'Carter' && carterMode.value) {
+                    return "The Adopted One"; 
+                }
+                if (name === 'Landon' && landonMode.value) {
+                    return "Landon Bacon McInelly";
+                }
+                if (name === 'Parker' && parkerMode.value) {
+                    return "The Favorite Child";
+                }
+                if (name === 'Ian' && ianMode.value) {
+                    return "⊂(◉‿◉)つ";
+                }
+                return name;
+            };
+
             const yearOptions = computed(() => {
                 const startYear = currentYear;
                 const endYear = currentYear + 10;
@@ -117,7 +193,9 @@
                     const i = (k - S + N) % N;
                     const j_base = T_BASE_INDICES[i];
                     const j = (j_base + S) % N;
+
                     const recipientName = PARTICIPANTS[j];
+
                     pairings.push({
                         giver: giverName,
                         recipient: recipientName
@@ -128,6 +206,7 @@
             });
 
             onMounted(() => {
+                initTone();
                 if (BASE_YEAR === currentYear) {
                     const expected = [
                         { giver: 'Preston', recipient: 'Carter' },
@@ -155,6 +234,8 @@
                 selectedYear,
                 yearOptions,
                 chartData,
+                handleNameStateChange, 
+                getDisplayName,
             };
         }
     };
