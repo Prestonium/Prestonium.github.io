@@ -1,0 +1,88 @@
+site:
+  name: "Dragon's Lair Comics & Games"
+  tagline: 'Comics, Games and More!'
+  since: 1975
+  timezone: 'America/Chicago'
+
+social:
+  facebook: 'https://www.facebook.com/thedragonslairs'
+  twitter: 'https://twitter.com/thedragonslairs'
+
+locations:
+  blondo:
+    name: "Dragon's Lair Blondo"
+    address: '2311 N 90th St, Omaha, NE 68134'
+    phone: '402-399-9141'
+    hours:
+      mon_sat: '9 AM - 9 PM'
+      sunday: '10 AM - 9 PM'
+    google_maps_embed: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2998.5!2d-96.0466!3d41.2842!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8793f5e0f424b3e7%3A0x1!2s2311+N+90th+St%2C+Omaha%2C+NE+68134!5e0!3m2!1sen!2sus!4v1'
+    google_calendar_id: '' # Add Google Calendar ID when available
+
+  millard:
+    name: "Dragon's Lair Millard"
+    address: '14616 West Center Road, Omaha, NE'
+    phone: '402-895-5653'
+    hours:
+      mon_sat: '10 AM - 9 PM'
+      sunday: '11 AM - 6 PM'
+    google_maps_embed: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2998.5!2d-96.1466!3d41.2442!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8793f5e0f424b3e7%3A0x2!2s14616+W+Center+Rd%2C+Omaha%2C+NE!5e0!3m2!1sen!2sus!4v1'
+    google_calendar_id: '' # Add Google Calendar ID when available
+
+schedule:
+  blondo:
+    - day: 'Monday'
+      events:
+        - 'Flesh & Blood CCG - 6 PM'
+    - day: 'Tuesday'
+      events:
+        - 'Yu-Gi-Oh! ADV Format - 6 PM'
+        - '(except last Tuesday of month)'
+    - day: 'Wednesday'
+      events:
+        - 'Digimon - 6 PM'
+        - 'Riftbound - 6 PM'
+    - day: 'Thursday'
+      events:
+        - 'One Piece 6:30 PM - Tournament'
+    - day: 'Friday'
+      events:
+        - 'Pokemon League & Gundam'
+        - '6 PM - Open Play/Tournament'
+    - day: 'Saturday'
+      events:
+        - 'Open Play Board Games'
+        - 'Dungeons & Dragons - 5 PM (alternating weeks)'
+        - 'Warhammer Open Play'
+    - day: 'Sunday'
+      events:
+        - 'MTG Commander - 11 AM-9 PM'
+        - 'Lorcana - 5 PM'
+
+  millard:
+    - day: 'Monday'
+      events:
+        - 'Miniature Monday - 6 PM'
+    - day: 'Tuesday'
+      events:
+        - 'RPG (DnD/Pathfinder) - 5 PM'
+        - 'Open to All'
+    - day: 'Wednesday'
+      events:
+        - 'Warhammer Wednesday - 5 PM'
+    - day: 'Thursday'
+      events:
+        - 'Pokemon Learn2Play - 6 PM'
+        - 'Lorcana League/Learn2Play'
+    - day: 'Friday'
+      events:
+        - 'MTG Learn to Play - 6 PM'
+        - 'MTG Commander - 6 PM'
+    - day: 'Saturday'
+      events:
+        - 'Yu-Gi-Oh! ADV Format - 5 PM'
+        - '(except last Saturday of month)'
+    - day: 'Sunday'
+      events:
+        - 'HeroClix - 3 PM'
+        - 'Star Wars Unlimited - 12 PM'
